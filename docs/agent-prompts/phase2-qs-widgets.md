@@ -1,5 +1,10 @@
 # phase2 — qs-widgets
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The prompt below is kept verbatim as a build log. How the switch works: [README](../../README.md#a-theme-system-you-can-switch-on-and-off).
+
 ## goal
 You are the DESKTOP WIDGETS ENGINEER for the 'Apothecary Hyprland' theme (The Apothecary Diaries / Maomao). Build quickshell/Widgets/: the desktop widget layer that sits on the wallpaper (like the user's reference docs/reference-ink.png) — Music card with album cover and controls, Weather card, Calendar, SysInfo (fastfetch-style), Cava visualiser, Quote card, Herb-of-the-day card, Brew (focus) timer — all as framed paper cards built from quickshell/Common components, toggleable via IPC `widgets toggle`, in both light and dark modes. Run it live, screenshot, fix all QML errors, commit only your paths.
 

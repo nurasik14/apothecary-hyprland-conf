@@ -9,8 +9,34 @@ of the inner court. Two moods, switchable live:
 | `light` | Apothecary 薬屋 | rice-paper cream, sumi ink, celadon green, a touch of vermilion and gold |
 | `dark` | Inner Palace 后宫 | night lacquer, vermilion, antique gold, jade, paper-cream text |
 
-It is a **layer** on top of [JaKooLit's Fedora-Hyprland dotfiles](https://github.com/JaKooLit/Fedora-Hyprland):
-nothing of the base config is edited in place, `apothecary off` brings the stock desktop back without logging out.
+## A theme system you can switch on and off
+
+Apothecary Hyprland is a **theme system**, not a replacement set of dotfiles. It sits as a layer on top of
+[JaKooLit's Fedora-Hyprland dotfiles](https://github.com/JaKooLit/Fedora-Hyprland): nothing of the base config is
+edited in place, and one command switches the whole theme on or off in the running session, without logging out.
+
+```sh
+apothecary on       # theme on: Hyprland layer, Quickshell shell, hyprlock/hypridle, app themes, wallpaper
+apothecary off      # theme off: the stock JaKooLit desktop comes back (~5 s)
+apothecary status   # which state you are in
+```
+
+How the switch works:
+
+- `scripts/install.sh` adds a single line to `~/.config/hypr/hyprland.conf` that sources `hypr/apothecary.conf`.
+  That file sources `~/.config/apothecary/active.conf`, a symlink the CLI points at `hypr/on.conf` (the theme) or
+  `hypr/off.conf` (empty) and then runs `hyprctl reload`.
+- **On** also stops waybar and the notification daemon, starts the Quickshell shell (`qs -c apothecary`), swaps in
+  the theme's hyprlock and hypridle configs, sets the mode's wallpaper and applies the matching app themes.
+- **Off** reverses every one of those steps: waybar, swaync/mako, the stock hypridle, your original
+  `hyprlock.conf`, GTK settings, kitty colours and your previous wallpaper all come back.
+- The choice survives logout and reboot (`~/.config/apothecary/enabled` marks it on; with the marker gone the
+  login hook does nothing).
+- Light/dark (`SUPER+T`) is a separate switch *inside* the theme. Use it while the theme is on; run while it is off,
+  it still changes the wallpaper and app colours.
+- Off is not uninstall: `scripts/uninstall.sh` removes the hook, links and app files completely. The SDDM login
+  theme is installed separately with sudo and is not affected by on/off (see
+  [docs/SUDO-STEPS.md](docs/SUDO-STEPS.md)).
 
 ## Screenshots
 

@@ -1,6 +1,7 @@
 # Apothecary Hyprland — install, use, remove
 
-Owner: hyprland-engineer. The theme is a **layer** over the JaKooLit Fedora-Hyprland dotfiles: nothing under
+Owner: hyprland-engineer. Apothecary is a **theme system** you switch on and off (`apothecary on` / `apothecary off`):
+a **layer** over the JaKooLit Fedora-Hyprland dotfiles: nothing under
 `~/.config/hypr/configs`, `UserConfigs`, `~/.config/waybar` or `~/.config/swaync` is edited. Everything lives in this
 repo and is linked in; `apothecary off` brings the stock desktop back without logging out.
 
@@ -42,6 +43,12 @@ At every login `hypr/on.conf` runs `exec-once = ~/.local/bin/apothecary session-
 `~/.config/apothecary/enabled` exists.
 
 `off` reverses all of it and restores the previous wallpaper; `apps/apply-mode.sh off` is called if present.
+
+The on/off state persists across logout and reboot: it is the `~/.config/apothecary/enabled` marker, which `on`
+creates and `off` deletes. Turning the theme off is not uninstalling it: the hook line, symlinks and app files stay in
+place (inert), so `apothecary on` brings the theme back instantly with the last mode and wallpaper. To remove it
+completely use `scripts/uninstall.sh` (section 7). The SDDM login theme is outside the switch; revert it with
+`sudo scripts/install-sddm.sh revert`.
 
 ## 3. Modes and wallpapers
 

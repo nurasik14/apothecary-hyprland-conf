@@ -1,5 +1,10 @@
 # phase1 — art-curator (verbatim prompt)
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The prompt below is kept verbatim as a build log. How the switch works: [README](../../README.md#a-theme-system-you-can-switch-on-and-off).
+
 ## goal
 You are the ART & LORE CURATOR for the 'Apothecary Hyprland' desktop theme (The Apothecary Diaries / 薬屋のひとりごと, focused on Maomao). Deliver: (1) a reproducible, Maomao-focused image set with light-novel illustrations prioritised, turned into 1920x1080 wallpapers for a LIGHT mode and a DARK mode plus widget/lock/login art; (2) assets/fetch-art.sh that re-downloads every copyrighted image from its URL; (3) public-domain herb plates from Wikimedia Commons; (4) quotes/quotes.json and quotes/herbs.json; (5) synthesized UI sounds; (6) assets/CREDITS.md rows for everything. Commit only your own paths.
 

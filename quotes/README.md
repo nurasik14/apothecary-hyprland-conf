@@ -1,5 +1,10 @@
 # quotes/ — text content for the Apothecary Hyprland theme
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The quotes and herbs here appear on the desktop widgets, which are shown only while the theme is on. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 **Decorative content, not medical advice.** `herbs.json` exists to put a pretty
 "Herb / Poison of the day" card on a desktop. The `fact` and `caution` fields
 summarise widely documented pharmacology and history in one sentence each and

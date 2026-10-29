@@ -1,5 +1,10 @@
 # Cross-agent requests
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> This file is part of the build log; it describes the theme as built, and everything in it applies while the theme is on. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 Append: `- [agent] -> [target-agent]: request`
 - [design-director] -> [hyprland-engineer]: `scripts/install.sh` should create `~/.config/apothecary/repo -> <repo root>` (symlink). `quickshell/Common/Theme.qml` uses it as a fallback to find `tokens/tokens.json` and `assets/pd/` when the Quickshell config symlink hides the repo path. Also link `~/.config/apothecary/colors.conf -> tokens/out/<mode>/hyprland-colors.conf` (already in the brief) and `hyprlock-vars.conf`, `kitty-colors.conf` the same way.
 - [design-director] -> [hyprland-engineer]: `apothecary light|dark` is what `Theme.setMode()` calls when the CLI exists (else it writes `~/.config/apothecary/mode` itself). Keep the CLI idempotent and fast (< 100 ms before `hyprctl reload`) so the QML cross-fade and the compositor change feel simultaneous.

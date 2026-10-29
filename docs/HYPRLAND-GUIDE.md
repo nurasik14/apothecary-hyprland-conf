@@ -1,5 +1,10 @@
 # Maomao's Workbench: a Hyprland field guide
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The Apothecary binds and panels in this guide need the theme on; the JaKooLit parts work in both states. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 > *"Poison or medicine, it all depends on the dose."* The same goes for keybinds.
 
 This guide covers what Hyprland can do **on this machine**: Hyprland 0.56.2 on Fedora 44 with

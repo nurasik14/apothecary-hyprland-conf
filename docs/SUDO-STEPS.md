@@ -1,5 +1,10 @@
 # Steps that need sudo (user runs these)
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The SDDM login theme below is installed separately and is not affected by on/off; it has its own `revert`. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 ```
 sudo dnf install -y kvantum papirus-icon-theme google-noto-serif-cjk-fonts
 ```

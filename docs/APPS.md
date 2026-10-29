@@ -1,5 +1,10 @@
 # Application theming (app-theming)
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> `apothecary off` runs `apps/apply-mode.sh off`, which puts your pre-theme app settings back. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 Everything the user runs outside the Quickshell shell, themed for both modes and switchable live.
 
 ```

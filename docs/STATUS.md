@@ -1,5 +1,10 @@
 # Orchestrator status — resume point
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> This file is part of the build log; it describes the theme as built, and everything in it applies while the theme is on. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 If a new session picks this project up: read BRIEF.md, then this file, then `git log` and `docs/REQUESTS.md`.
 Agent prompts are saved verbatim in `docs/agent-prompts/` (phase1-*, phase2-*, phase3-*, orchestrator-resume.md); pass goal/context verbatim, with a "RESUME: these files already exist …" preamble if an agent was cut off.
 

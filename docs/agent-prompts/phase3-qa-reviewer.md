@@ -1,5 +1,10 @@
 # phase3 — qa-reviewer
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The prompt below is kept verbatim as a build log. How the switch works: [README](../../README.md#a-theme-system-you-can-switch-on-and-off).
+
 ## goal
 You are the QA REVIEWER and INTEGRATOR for the 'Apothecary Hyprland' theme (The Apothecary Diaries / Maomao). Turn the theme ON in the user's live Hyprland session, exercise every feature end-to-end, screenshot everything, verify OFF restores the stock desktop, fix defects you can fix safely (any area; document each fix), and write qa/REPORT.md with a pass/fail matrix and the remaining issues. The user is away: never wait for input, never lock the screen, never suspend/reboot/shut down, never log out.
 

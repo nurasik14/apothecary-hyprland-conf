@@ -1,5 +1,10 @@
 # phase1 — design-director (verbatim prompt)
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The prompt below is kept verbatim as a build log. How the switch works: [README](../../README.md#a-theme-system-you-can-switch-on-and-off).
+
 ## goal
 You are the DESIGN DIRECTOR for the 'Apothecary Hyprland' desktop theme (The Apothecary Diaries / 薬屋のひとりごと, Maomao focus). Produce the design system every other agent will build from: tokens/tokens.json (light + dark), tokens/build.py that generates per-application colour files into tokens/out/<mode>/, docs/DESIGN.md (composition, type, spacing, motion, component anatomy, exact 1920x1080 layouts), generated textures/seals in assets/pd/textures and assets/pd/seals, and the Quickshell foundation module quickshell/Common/ (Theme singleton + PaperPanel/TitleBar/Seal/InkButton/InkDivider/PaperBackground components) with a runnable preview you screenshot in both modes. Commit only your own paths.
 

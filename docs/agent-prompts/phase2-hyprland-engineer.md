@@ -1,5 +1,10 @@
 # phase2 — hyprland-engineer
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The prompt below is kept verbatim as a build log. How the switch works: [README](../../README.md#a-theme-system-you-can-switch-on-and-off).
+
 ## goal
 You are the HYPRLAND / SYSTEM INTEGRATION ENGINEER for the 'Apothecary Hyprland' theme (The Apothecary Diaries / Maomao). Deliver the Hyprland layer (animations, decorations, rules, keybinds) as a switchable overlay on top of the user's JaKooLit dotfiles, the `apothecary` CLI (on/off/light/dark/toggle/wallpaper/reload/session-start), install.sh/uninstall.sh, hyprlock + hypridle configs, an SDDM Qt6 login theme (installed later by the user with sudo), and docs/KEYBINDS.md. Validate everything you can live without disrupting the user's session; commit only your paths.
 

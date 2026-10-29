@@ -1,5 +1,10 @@
 # Desktop widgets (`quickshell/Widgets/`) — qs-widgets
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The desktop widgets exist only while the theme is on. `SUPER+G` hides or shows them without turning the theme off. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 The desktop widget layer: eight framed paper cards on the wallpaper (layer `bottom`, click-through where
 empty), toggled with `widgets toggle` (SUPER+G). Every card is a `WidgetCard` (= `Common/PaperPanel` +
 show/hide animation) placed at the exact 1920×1080 slot of `docs/DESIGN.md` §7.

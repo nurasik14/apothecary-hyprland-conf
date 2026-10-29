@@ -1,5 +1,10 @@
 # phase2 — app-theming
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The prompt below is kept verbatim as a build log. How the switch works: [README](../../README.md#a-theme-system-you-can-switch-on-and-off).
+
 ## goal
 You are the APPLICATION THEMING ENGINEER for the 'Apothecary Hyprland' theme (The Apothecary Diaries / Maomao). Theme every application the user runs so both LIGHT ('Apothecary', rice paper + ink + teal) and DARK ('Inner Palace', lacquer + vermilion + gold) modes look like one world: kitty, GTK3/GTK4 (+ icons Papirus, cursor, fonts), Qt (qt6ct colour scheme + Kvantum), rofi, superfile (spf), fastfetch (with Maomao image), cava, btop, starship, spicetify (Spotify), Zen browser userChrome, nvim colourscheme, wlogout, swappy. Deliver apps/install.sh, apps/uninstall.sh and apps/apply-mode.sh <light|dark|off> that switch everything live. Verify by launching the apps and screenshotting; commit only your paths.
 

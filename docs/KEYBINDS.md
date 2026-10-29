@@ -1,5 +1,10 @@
 # Apothecary Hyprland — keybinds
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> Every bind in this file exists only while the theme is on; there is no keybind for on/off itself (use the CLI). How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 Active only while the theme is on (`apothecary on`); `hypr/keybinds.conf` is sourced from `hypr/on.conf`.
 `apothecary off` + `hyprctl reload` brings every JaKooLit bind back untouched.
 

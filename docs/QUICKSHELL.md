@@ -1,5 +1,10 @@
 # Quickshell shell — `qs -c apothecary`
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> The shell described here runs only while the theme is on; `off` stops it and restarts waybar and the notification daemon. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 Owner: qs-core. Config root: `quickshell/` (symlinked to `~/.config/quickshell/apothecary`). Entry: `quickshell/shell.qml`.
 Desktop widgets (`quickshell/Widgets`, IPC targets `widgets` and `brew`) belong to qs-widgets and are instantiated by
 `shell.qml` as `DesktopWidgets {}`.

@@ -1,5 +1,10 @@
 # Apothecary Hyprland — QA report (qa-reviewer, 2026-10-29)
 
+> **Theme system, switchable.** Apothecary Hyprland is a theme system layered on top of the JaKooLit
+> Hyprland dotfiles, not a replacement for them. Turn it on with `apothecary on` and off with `apothecary off`
+> (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
+> This report tested both states: theme on (steps 4–7, 9) and theme off restoring the stock desktop (step 8). How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+
 _Written incrementally during the run; each protocol step appends a section. Screenshots live in
 `qa/screenshots/` (gitignored — copyrighted wallpapers); absolute paths are given._
 
