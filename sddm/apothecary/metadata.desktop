@@ -1,0 +1,14 @@
+; Apothecary Hyprland — SDDM theme (Qt 6). Install: sudo scripts/install-sddm.sh [light|dark]  (see docs/SUDO-STEPS.md)
+
+[SddmGreeterTheme]
+Name=Apothecary
+Type=sddm-theme
+Description=The Apothecary Diaries — paper, ink, seal. Login theme for Apothecary Hyprland.
+Author=apothecary-hyprland (hyprland-engineer)
+License=MIT (fonts: SIL OFL; artwork not redistributed)
+Version=1.0
+Theme-Id=apothecary
+Theme-API=2.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+QtVersion=6

@@ -1,0 +1,403 @@
+#!/usr/bin/env bash
+# apothecary — Apothecary Hyprland theme CLI (The Apothecary Diaries / Maomao).
+#
+#   apothecary on | off | status | toggle | light | dark | reload | session-start
+#   apothecary wallpaper next | prev | current | pick | <path>
+#   apothecary help
+#
+# Installed as ~/.local/bin/apothecary -> <repo>/scripts/apothecary by scripts/install.sh.
+# Everything it touches lives in ~/.config/apothecary/ (state) and ~/.config/hypr/hyprlock.conf (only while on).
+# Fast path: `light|dark|toggle` do only file/symlink work before `hyprctl reload` (< 100 ms); the wallpaper
+# transition and apps/apply-mode.sh run afterwards (apps detached).
+set -euo pipefail
+
+# ---------------------------------------------------------------------------------------------- paths
+SELF="$(realpath "${BASH_SOURCE[0]}")"
+REPO="$(cd "$(dirname "$SELF")/.." && pwd -P)"
+CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
+STATE="$CFG/apothecary"
+HYPR="$CFG/hypr"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/apothecary"
+QS_CMD='qs -c apothecary'
+QS_LOG="$CACHE/qs.log"
+APPS_LOG="$CACHE/apps.log"
+
+mkdir -p "$STATE" "$CACHE"
+
+# ---------------------------------------------------------------------------------------------- helpers
+say()  { printf '  %s\n' "$*"; }
+warn() { printf 'apothecary: %s\n' "$*" >&2; }
+die()  { warn "$*"; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+detach() {                      # run a command fully detached from this shell/Hyprland dispatcher
+    setsid -f "$@" >/dev/null 2>&1 </dev/null || true
+}
+
+mode_get() {
+    local m="light"
+    [[ -r "$STATE/mode" ]] && m="$(tr -d '[:space:]' <"$STATE/mode")"
+    [[ "$m" == "dark" ]] && echo dark || echo light
+}
+mode_set() { printf '%s\n' "$1" >"$STATE/mode"; }
+enabled()  { [[ -e "$STATE/enabled" ]]; }
+
+json_get() {                    # json_get '.sounds' default
+    local v="$2"
+    if [[ -r "$STATE/config.json" ]] && have jq; then
+        v="$(jq -r "$1 // empty" "$STATE/config.json" 2>/dev/null || true)"
+        [[ -z "$v" ]] && v="$2"
+    fi
+    printf '%s' "$v"
+}
+sounds_on() { [[ "$(json_get '.sounds' true)" != "false" ]]; }
+
+play_sound() {                  # play_sound login  (never blocks)
+    sounds_on || return 0
+    local f="$REPO/assets/sounds/$1.wav"
+    [[ -r "$f" ]] && have pw-play && detach pw-play "$f"
+    return 0
+}
+
+hypr_reload() {
+    have hyprctl || return 0
+    local out
+    out="$(hyprctl reload 2>&1 || true)"
+    [[ "$out" == "ok" || -z "$out" ]] || warn "hyprctl reload: $out"
+}
+
+# --- per-mode symlinks: colors / hyprlock vars / kitty colours / lock art ---------------------------------
+link_mode_files() {
+    local m="$1" out="$REPO/tokens/out/$m"
+    ln -sfn "$out/hyprland-colors.conf" "$STATE/colors.conf"
+    ln -sfn "$out/hyprlock-vars.conf"   "$STATE/hyprlock-vars.conf"
+    ln -sfn "$out/kitty.conf"           "$STATE/kitty-colors.conf"
+    ln -sfn "$REPO"                     "$STATE/repo"
+    # lock.png -> assets/art/lock-<mode>.png; if the art is missing fall back to the mode's wallpaper.
+    local art="$REPO/assets/art/lock-$m.png"
+    if [[ -r "$art" ]]; then
+        ln -sfn "$art" "$STATE/lock.png"
+    else
+        local wp; wp="$(wallpaper_for_mode "$m" || true)"
+        [[ -n "$wp" ]] && ln -sfn "$wp" "$STATE/lock.png"
+    fi
+}
+
+# --- wallpapers ---------------------------------------------------------------------------------------
+wallpaper_list() {              # wallpaper_list <mode>  -> sorted absolute paths
+    local d="$REPO/assets/wallpapers/$1"
+    [[ -d "$d" ]] || return 0
+    find "$d" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+        | LC_ALL=C sort
+}
+wallpaper_for_mode() {          # remembered choice if still valid, else the first file of the folder
+    local m="$1" f=""
+    [[ -r "$STATE/wallpaper-$m" ]] && f="$(head -n1 "$STATE/wallpaper-$m")"
+    if [[ -n "$f" && -r "$f" ]]; then printf '%s\n' "$f"; return 0; fi
+    f="$(wallpaper_list "$m" | head -n1)"
+    [[ -n "$f" ]] && printf '%s\n' "$f"
+}
+awww_current() {                # path awww is displaying on the first output (empty if none)
+    have awww || return 0
+    awww query 2>/dev/null | sed -n 's/.*currently displaying: image: //p' | head -n1
+}
+save_prev_wallpaper() {         # remember the user's pre-theme wallpaper once (restored by `off`)
+    [[ -s "$STATE/prev-wallpaper" ]] && return 0
+    local cur; cur="$(awww_current)"
+    [[ -n "$cur" && "$cur" != "$REPO"/assets/* ]] && printf '%s\n' "$cur" >"$STATE/prev-wallpaper"
+    return 0
+}
+awww_set() {                    # awww_set <path> <transition grow|fade> [pos]
+    local path="$1" kind="${2:-grow}" pos="${3:-center}"
+    have awww || { warn "awww not found; wallpaper not set"; return 0; }
+    pgrep -x awww-daemon >/dev/null 2>&1 || { awww-daemon >/dev/null 2>&1 & sleep 0.3; }
+    if [[ "$(json_get '.reduced_motion' false)" == "true" ]]; then
+        awww img "$path" --transition-type fade --transition-duration 0.3 --transition-fps 60 >/dev/null 2>&1 || true
+    elif [[ "$kind" == "grow" ]]; then
+        awww img "$path" --transition-type grow --transition-duration 1.2 --transition-fps 165 \
+            --transition-bezier .22,1,.36,1 --transition-pos "$pos" >/dev/null 2>&1 || true
+    else
+        awww img "$path" --transition-type fade --transition-duration 1.0 --transition-fps 165 \
+            --transition-bezier .22,1,.36,1 >/dev/null 2>&1 || true
+    fi
+}
+wallpaper_apply() {             # wallpaper_apply <path> [transition] — set + remember for the current mode
+    local path="$1" kind="${2:-grow}" m; m="$(mode_get)"
+    [[ -r "$path" ]] || die "wallpaper not found: $path"
+    path="$(realpath "$path")"
+    save_prev_wallpaper
+    awww_set "$path" "$kind"
+    printf '%s\n' "$path" >"$STATE/wallpaper-$m"
+    # keep lock.png following the wallpaper when there is no dedicated lock art
+    [[ -r "$REPO/assets/art/lock-$m.png" ]] || ln -sfn "$path" "$STATE/lock.png"
+    say "wallpaper ($m): ${path#"$REPO"/}"
+}
+wallpaper_step() {              # wallpaper_step +1|-1
+    local m; m="$(mode_get)"
+    local list cur idx n
+    mapfile -t list < <(wallpaper_list "$m")
+    n="${#list[@]}"
+    (( n > 0 )) || die "no wallpapers in assets/wallpapers/$m (run assets/fetch-art.sh + scripts/make-wallpapers.sh)"
+    cur="$(wallpaper_for_mode "$m" || true)"
+    idx=-1
+    for i in "${!list[@]}"; do [[ "${list[$i]}" == "$cur" ]] && { idx=$i; break; }; done
+    idx=$(( (idx + n + $1) % n ))
+    wallpaper_apply "${list[$idx]}" grow
+}
+
+# --- hyprlock swap (only while on): JaKooLit's LockScreen.sh runs plain `hyprlock` ------------------------
+hyprlock_swap_on() {
+    local f="$HYPR/hyprlock.conf" bak="$HYPR/hyprlock.conf.pre-apothecary"
+    if [[ -L "$f" && "$(readlink -f "$f")" == "$REPO/hypr/hyprlock.conf" ]]; then return 0; fi
+    if [[ -e "$f" || -L "$f" ]]; then
+        if [[ ! -e "$bak" ]]; then
+            mv "$f" "$bak"
+        elif cmp -s "$f" "$bak"; then
+            rm -f "$f"                                   # identical to the backup: nothing to keep
+        else
+            mv "$f" "$bak.$(date +%Y%m%d-%H%M%S)"        # never overwrite an existing backup
+        fi
+    fi
+    ln -sfn "$REPO/hypr/hyprlock.conf" "$f"
+}
+hyprlock_swap_off() {
+    local f="$HYPR/hyprlock.conf" bak="$HYPR/hyprlock.conf.pre-apothecary"
+    if [[ -L "$f" && "$(readlink -f "$f")" == "$REPO/hypr/hyprlock.conf" ]]; then rm -f "$f"; fi
+    if [[ ! -e "$f" && -e "$bak" ]]; then mv "$bak" "$f"; fi
+}
+
+# --- processes ------------------------------------------------------------------------------------------
+qs_running() { pgrep -f -x "$QS_CMD" >/dev/null 2>&1; }
+qs_start()   { qs_running && return 0; setsid -f bash -c "exec $QS_CMD >>'$QS_LOG' 2>&1" </dev/null || true; }
+qs_stop()    { pkill -f -x "$QS_CMD" >/dev/null 2>&1 || true; }
+
+hypridle_restart() {            # hypridle_restart theme|stock
+    pkill -x hypridle >/dev/null 2>&1 || true
+    sleep 0.2
+    if [[ "$1" == "theme" ]]; then detach hypridle -c "$REPO/hypr/hypridle.conf"; else detach hypridle; fi
+}
+
+waybar_is_service() {
+    local ls; ls="$(systemctl --user show waybar.service --property=LoadState --value 2>/dev/null || true)"
+    [[ -n "$ls" && "$ls" != "not-found" ]]
+}
+stock_bar_stop() {
+    if waybar_is_service && systemctl --user is-active --quiet waybar.service; then
+        systemctl --user stop waybar.service >/dev/null 2>&1 || true
+    fi
+    pkill -x waybar >/dev/null 2>&1 || true
+    pkill -x .waybar-wrapped >/dev/null 2>&1 || true
+    pkill -x waybar-weather >/dev/null 2>&1 || true
+    # swaync is only brought back by `off` if it was actually running (on this machine the daemon is mako
+    # and only waybar's `swaync-client` is around — starting swaync would add a second daemon).
+    if pgrep -x swaync >/dev/null 2>&1; then touch "$STATE/swaync-was-active"; fi
+    pkill -x swaync >/dev/null 2>&1 || true
+    # mako owns org.freedesktop.Notifications on this machine (systemd user unit); the Quickshell
+    # notification server cannot register while it runs.
+    if systemctl --user is-active --quiet mako.service 2>/dev/null; then
+        systemctl --user stop mako.service >/dev/null 2>&1 || true
+        touch "$STATE/mako-was-active"
+    fi
+    pkill -x mako >/dev/null 2>&1 || true
+}
+stock_bar_start() {
+    if [[ -e "$STATE/mako-was-active" ]]; then
+        systemctl --user start mako.service >/dev/null 2>&1 || detach mako
+        rm -f "$STATE/mako-was-active"
+    fi
+    if ! pgrep -x waybar >/dev/null 2>&1; then
+        if waybar_is_service; then systemctl --user start waybar.service >/dev/null 2>&1 || detach waybar
+        else detach waybar; fi
+    fi
+    if ! pgrep -x swaync >/dev/null 2>&1 && [[ -e "$STATE/swaync-was-active" ]]; then detach swaync; fi
+    rm -f "$STATE/swaync-was-active"
+    # waybar-weather is a waybar custom-module child: it comes back with waybar.
+}
+
+apps_apply() {                  # apps/apply-mode.sh <mode|off>, detached (may take seconds: spicetify etc.)
+    local s="$REPO/apps/apply-mode.sh"
+    [[ -x "$s" ]] || return 0
+    setsid -f bash -c "exec '$s' '$1' >>'$APPS_LOG' 2>&1" </dev/null || true
+}
+
+# ---------------------------------------------------------------------------------------------- commands
+cmd_on() {
+    local m; m="$(mode_get)"
+    touch "$STATE/enabled"
+    ln -sfn "$REPO/hypr/on.conf" "$STATE/active.conf"
+    link_mode_files "$m"
+    hyprlock_swap_on
+    hypr_reload
+    echo "apothecary: ON ($m)"
+    say "active.conf -> hypr/on.conf, colors/hyprlock-vars/lock.png -> $m"
+    say "hyprlock.conf -> repo (original saved as hyprlock.conf.pre-apothecary)"
+    cmd_session_start
+    apps_apply "$m"
+}
+
+cmd_off() {
+    rm -f "$STATE/enabled"
+    ln -sfn "$REPO/hypr/off.conf" "$STATE/active.conf"
+    hyprlock_swap_off
+    qs_stop
+    hypridle_restart stock
+    stock_bar_start
+    hypr_reload
+    if [[ -s "$STATE/prev-wallpaper" ]]; then
+        local prev; prev="$(head -n1 "$STATE/prev-wallpaper")"
+        if [[ -r "$prev" ]]; then awww_set "$prev" fade; fi
+        rm -f "$STATE/prev-wallpaper"
+    fi
+    apps_apply off
+    echo "apothecary: OFF"
+    say "active.conf -> hypr/off.conf, hyprlock.conf restored, qs stopped, waybar + swaync/mako + hypridle (stock) restarted"
+}
+
+cmd_session_start() {
+    enabled || return 0
+    local m; m="$(mode_get)"
+    # wait (max 10 s) for JaKooLit's startup to bring waybar up, so we stop the real thing and not a race.
+    for _ in $(seq 1 20); do
+        pgrep -x waybar >/dev/null 2>&1 && break
+        sleep 0.5
+    done
+    sleep 0.5
+    stock_bar_stop
+    qs_start
+    hypridle_restart theme
+    local wp; wp="$(wallpaper_for_mode "$m" || true)"
+    if [[ -n "$wp" ]]; then save_prev_wallpaper; awww_set "$wp" fade; fi
+    play_sound login
+    echo "apothecary: session started ($m) — qs log: $QS_LOG"
+}
+
+cmd_mode() {                    # cmd_mode light|dark
+    local m="$1" prev; prev="$(mode_get)"
+    mode_set "$m"
+    link_mode_files "$m"
+    hypr_reload                                        # everything above is symlink work (< 100 ms)
+    echo "apothecary: mode $m${prev:+ (was $prev)}"
+    local wp; wp="$(wallpaper_for_mode "$m" || true)"
+    if [[ -n "$wp" ]]; then save_prev_wallpaper; awww_set "$wp" grow; printf '%s\n' "$wp" >"$STATE/wallpaper-$m"; say "wallpaper: ${wp#"$REPO"/}"; fi
+    apps_apply "$m"
+}
+
+cmd_wallpaper() {
+    case "${1:-}" in
+        next)    wallpaper_step +1 ;;
+        prev)    wallpaper_step -1 ;;
+        current) local wp; wp="$(wallpaper_for_mode "$(mode_get)" || true)"
+                 [[ -n "$wp" ]] || die "no wallpaper for mode $(mode_get)"
+                 wallpaper_apply "$wp" fade ;;
+        pick)    $QS_CMD ipc call wallpapers toggle ;;
+        random)  local m list; m="$(mode_get)"; mapfile -t list < <(wallpaper_list "$m")
+                 (( ${#list[@]} )) || die "no wallpapers in assets/wallpapers/$m"
+                 wallpaper_apply "${list[RANDOM % ${#list[@]}]}" grow ;;
+        "")      wallpaper_for_mode "$(mode_get)" || true ;;
+        *)       wallpaper_apply "$1" grow ;;
+    esac
+}
+
+cmd_status() {
+    local m; m="$(mode_get)"
+    printf 'enabled:   %s\n' "$(enabled && echo yes || echo no)"
+    printf 'mode:      %s\n' "$m"
+    printf 'active:    %s\n' "$(readlink "$STATE/active.conf" 2>/dev/null || echo '(none)')"
+    printf 'wallpaper: %s\n' "$(wallpaper_for_mode "$m" 2>/dev/null || echo '(none)')"
+    printf 'awww:      %s\n' "$(awww_current || echo '(none)')"
+    printf 'qs:        %s\n' "$(qs_running && echo running || echo stopped)"
+    printf 'waybar:    %s\n' "$(pgrep -x waybar >/dev/null && echo running || echo stopped)"
+    printf 'swaync:    %s\n' "$(pgrep -x swaync >/dev/null && echo running || echo stopped)"
+    printf 'hypridle:  %s\n' "$(pgrep -a -x hypridle 2>/dev/null | head -n1 | cut -d' ' -f2- || echo stopped)"
+    printf 'hyprlock:  %s\n' "$(readlink "$HYPR/hyprlock.conf" 2>/dev/null || echo 'stock file')"
+    printf 'repo:      %s\n' "$REPO"
+}
+
+cmd_reload() {
+    hypr_reload
+    if enabled; then qs_stop; sleep 0.3; qs_start; fi
+    echo "apothecary: reloaded"
+}
+
+# Game mode (SUPER+SHIFT+G while on). Replaces JaKooLit's GameMode.sh, whose "disable" half restores the
+# JaKooLit wallpaper + wallust colours and runs Refresh.sh (`pkill qs && qs &`, restarts waybar/swaync) —
+# i.e. it tore the theme down. Enable = the same keyword batch (no animations/blur/shadows/gaps/rounding,
+# everything opaque) + widgets hidden; disable = `hyprctl reload` (every value comes back from our config),
+# shell re-checked, widgets restored, our wallpaper re-applied.
+cmd_gamemode() {
+    local flag="$STATE/gamemode" want="${1:-toggle}"
+    if [[ "$want" == toggle ]]; then [[ -e "$flag" ]] && want=off || want=on; fi
+    if [[ "$want" == on ]]; then
+        local wv; wv="$($QS_CMD ipc call widgets status 2>/dev/null || echo visible)"
+        printf '%s\n' "$wv" >"$flag"
+        hyprctl --batch "keyword animations:enabled 0; keyword decoration:shadow:enabled 0; \
+keyword decoration:blur:enabled 0; keyword general:gaps_in 0; keyword general:gaps_out 0; \
+keyword general:border_size 1; keyword decoration:rounding 0; keyword decoration:active_opacity 1; \
+keyword decoration:inactive_opacity 1; keyword decoration:dim_inactive 0" >/dev/null 2>&1 || true
+        $QS_CMD ipc call widgets hide >/dev/null 2>&1 || true
+        notify-send -a Apothecary -u low 'Game mode · on' 'Animations, blur, gaps and widgets off. SUPER+SHIFT+G to restore.' 2>/dev/null || true
+        echo "apothecary: game mode ON"
+    else
+        local wv="visible"; [[ -r "$flag" ]] && wv="$(head -n1 "$flag")"
+        rm -f "$flag"
+        hypr_reload
+        if enabled; then
+            qs_start
+            sleep 0.5
+            [[ "$wv" == hidden ]] || $QS_CMD ipc call widgets reveal >/dev/null 2>&1 || true
+            local wp; wp="$(wallpaper_for_mode "$(mode_get)" || true)"
+            [[ -n "$wp" && "$(awww_current)" != "$wp" ]] && awww_set "$wp" fade
+        fi
+        notify-send -a Apothecary -u low 'Game mode · off' 'Theme restored.' 2>/dev/null || true
+        echo "apothecary: game mode OFF"
+    fi
+}
+
+# repair: bring the theme back after something external (JaKooLit Refresh.sh, a wallpaper script, a
+# crashed shell) restarted waybar/mako, killed the shell or changed the wallpaper.
+cmd_repair() {
+    enabled || die "theme is off (apothecary on)"
+    stock_bar_stop
+    qs_start
+    pgrep -f -x 'qs -c overview' >/dev/null 2>&1 || detach qs -c overview   # JaKooLit's overview (Refresh.sh kills it)
+    local wp; wp="$(wallpaper_for_mode "$(mode_get)" || true)"
+    [[ -n "$wp" && "$(awww_current)" != "$wp" ]] && awww_set "$wp" fade
+    hypr_reload
+    echo "apothecary: repaired (waybar/mako stopped, shell running, wallpaper re-applied)"
+}
+
+cmd_help() {
+    cat <<EOF
+apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
+
+  on              enable the theme: Hyprland layer, hyprlock, Quickshell shell (replaces waybar + swaync)
+  off             disable it and bring the stock JaKooLit desktop back (no logout needed)
+  status          what is on, which mode, wallpaper, running processes
+  light | dark    switch mode (Apothecary 薬屋 / Inner Palace 后宫) — colours, wallpaper, apps
+  toggle          flip the mode
+  wallpaper next | prev | random | current | pick | <path>
+                  cycle / re-apply / open the picker / set a file, remembered per mode
+  reload          hyprctl reload + restart the Quickshell shell (if on)
+  gamemode [on|off|toggle]
+                  no animations/blur/gaps/widgets for games; off restores the theme (SUPER+SHIFT+G)
+  repair          re-stop waybar/mako, restart the shell, re-apply the wallpaper (after JaKooLit scripts)
+  session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
+
+state: $STATE   repo: $REPO
+EOF
+}
+
+case "${1:-help}" in
+    on)            cmd_on ;;
+    off)           cmd_off ;;
+    status)        cmd_status ;;
+    light|dark)    cmd_mode "$1" ;;
+    toggle)        if [[ "$(mode_get)" == "light" ]]; then cmd_mode dark; else cmd_mode light; fi ;;
+    wallpaper)     shift; cmd_wallpaper "${1:-}" ;;
+    reload)        cmd_reload ;;
+    gamemode)      shift; cmd_gamemode "${1:-toggle}" ;;
+    repair)        cmd_repair ;;
+    session-start) cmd_session_start ;;
+    help|-h|--help) cmd_help ;;
+    *)             warn "unknown command: $1"; cmd_help; exit 2 ;;
+esac
