@@ -16,6 +16,8 @@ Changes to the Apothecary Hyprland theme after the first public version. Newest 
   ignored and the last good copy stays.
 - **`apothecary ws`** to manage the titles: `ws`, `ws <n> "Title" ["note"]`, `ws <n> --note "…"`, `ws <n> --clear`,
   `ws edit`, `ws show [n]`.
+- `apothecary ws help` (also `-h`, `--help`, `ws auto help`) prints every `ws` / `ws auto` command, the file paths
+  and examples. A wrong subcommand or option now shows this help and exits 1 instead of a terse error.
 - Hovering a workspace numeral in the bar shows its title as a tooltip.
 - New IPC target `workspace`: `reveal <n>`, `current`, `hide`, `title <n>`.
 - **Claude auto-labelling** (`scripts/ws-autolabel.py`, off by default; `apothecary ws auto on|off|status|now [n]|clear|log`,

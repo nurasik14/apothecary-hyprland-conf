@@ -382,7 +382,7 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
                   no animations/blur/gaps/widgets for games; off restores the theme (SUPER+SHIFT+G)
   ws [list]       your title + note for workspaces 1–10 (shown in a card when you switch, and on bar hover)
   ws <n> "Title" ["note"]  |  ws <n> --note "text"  |  ws <n> --clear  |  ws edit  |  ws show [n]
-  ws auto on|off|status|now [n]|clear|log
+  ws auto on|off|status|now [n]|clear|log      (apothecary ws help = full reference)
                   let Claude (your plan, haiku) title workspaces that have windows but no title, and retitle
                   its own labels when the apps change a lot; your titles are never touched.  ws <n> --auto
                   hands one back to Claude
@@ -418,6 +418,47 @@ ws_cfg()   {                    # ws_cfg <jq filter on config.json>  (same in-pl
     jq "$@" "$cfg" >"$tmp" && cat "$tmp" >"$cfg"; rm -f "$tmp"
 }
 
+cmd_ws_help() {
+    cat <<EOF
+apothecary ws — titles and notes for workspaces 1–10
+A card with the title and note appears whenever you switch to that workspace (theme on);
+hovering a numeral in the bar shows the title.
+
+  ws | ws list                    list all ten (Claude's labels are marked "(auto)")
+  ws <n>                          print workspace n's entry and flash its card
+  ws <n> "Title" ["note"]         set a title (and note); title only keeps the existing note
+  ws <n> --note "text"            set only the note
+  ws <n> --clear                  remove the title and note
+  ws <n> --auto                   drop your title and let Claude label n now
+  ws edit                         open workspaces.json in \$VISUAL / \$EDITOR (default nvim)
+  ws show [n]                     flash the card for n (default: current workspace)
+  ws help                         this help
+
+Claude auto-labelling (off by default; uses your logged-in Claude Code plan, model haiku):
+  ws auto on | off                start / stop the watcher (runs inside the shell)
+  ws auto status                  enabled?, settings, watcher running?, last log lines
+  ws auto now [n]                 label every workspace that needs it now; with n: relabel n even if you titled it
+  ws auto clear                   remove all of Claude's labels (yours stay)
+  ws auto log [lines]             what it did and why
+  ws auto help                    this help
+
+Claude labels a workspace when it has windows but no title, or when its auto label is older than 10 min and its
+apps mostly changed. Titles you set yourself are never overwritten.
+
+Files:
+  titles    $WS_FILE
+  settings  $STATE/config.json  → "workspace_card": {enabled, duration, position, show_untitled}
+                                   "workspace_auto": {enabled, model, send_titles, settle, cooldown, max_per_hour}
+  log       $CACHE/ws-auto.log
+Docs: $REPO/docs/HYPRLAND-GUIDE.md §3.6
+
+Examples:
+  apothecary ws 3 "Coding" "MCP server + course labs"
+  apothecary ws 3 --note "debugging the scrobbler"
+  apothecary ws auto on
+EOF
+}
+
 cmd_ws_auto() {
     local cfg="$STATE/config.json"
     case "${1:-status}" in
@@ -438,7 +479,8 @@ cmd_ws_auto() {
         clear)  ws_write 'with_entries(select((.value|type)=="string" or (.value.auto != true)))'
                 say "removed every auto label (yours are kept)" ;;
         log)    tail -n "${2:-30}" "$CACHE/ws-auto.log" 2>/dev/null || say "no log yet" ;;
-        *)      die "usage: apothecary ws auto on|off|status|now [n]|clear|log" ;;
+        help|-h|--help) cmd_ws_help ;;
+        *)      warn "unknown: ws auto $1"; cmd_ws_help >&2; exit 1 ;;
     esac
 }
 
@@ -458,6 +500,8 @@ cmd_ws() {
             say ""; say "set:  apothecary ws <1-10> \"Title\" [\"note\"]   ·   edit: apothecary ws edit   ·   Claude: apothecary ws auto on" ;;
         auto)
             shift; cmd_ws_auto "$@" ;;
+        help|-h|--help)
+            cmd_ws_help ;;
         edit)
             [[ -s "$WS_FILE" ]] || ws_write -n '[range(1;11)|{key:tostring, value:{title:"", note:""}}]|from_entries'
             "${VISUAL:-${EDITOR:-nvim}}" "$WS_FILE"
@@ -466,13 +510,17 @@ cmd_ws() {
             local n="${2:-}"
             if [[ -z "$n" ]]; then $QS_CMD ipc call workspace current; else ws_check "$n"; $QS_CMD ipc call workspace reveal "$n"; fi ;;
         *)
-            local n="$1"; ws_check "$n"; shift
+            local n="$1"
+            [[ "$n" =~ ^([1-9]|10)$ ]] || { warn "unknown: ws $n"; cmd_ws_help >&2; exit 1; }
+            shift
             case "${1:-}" in
                 "")       jq -r --arg i "$n" '.[$i] // "—"' "$WS_FILE" 2>/dev/null || echo "—"; ws_flash "$n" ;;
                 --clear)  ws_write --arg i "$n" 'del(.[$i])'; say "workspace $n cleared" ;;
                 --auto)   ws_write --arg i "$n" 'del(.[$i])'; say "workspace $n handed back to Claude"
                           /usr/bin/python3 "$WS_AUTO" --once "$n" ;;
-                --note)   ws_write --arg i "$n" --arg note "${2:-}" \
+                help|-h|--help) cmd_ws_help ;;
+                --*)      [[ "$1" == --note ]] || { warn "unknown option: ws $n $1"; cmd_ws_help >&2; exit 1; }
+                          ws_write --arg i "$n" --arg note "${2:-}" \
                               '.[$i] = ((.[$i] // {}) | if type=="string" then {title:.} else . end | .note = $note | del(.auto, .sig, .at))'
                           say "workspace $n note set"; ws_flash "$n" ;;
                 *)        local title="$1"

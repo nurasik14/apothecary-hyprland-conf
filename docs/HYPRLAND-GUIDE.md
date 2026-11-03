@@ -267,6 +267,7 @@ apothecary ws 3 --note "new note"     # note only
 apothecary ws 3 --clear
 apothecary ws edit                    # open workspaces.json in $EDITOR (nvim)
 apothecary ws show 3                  # flash the card now
+apothecary ws help                    # every ws / ws auto command, file paths and examples
 ```
 
 Titles and notes grow up to about 50 characters before the title is cut with "…" and the note wraps (3 lines max).
@@ -395,6 +396,7 @@ apothecary gamemode [on|off|toggle]
 apothecary repair
 apothecary ws [list] | ws <1-10> "Title" ["note"] | ws <n> --note "…" | --clear | --auto | ws edit | ws show [n]
 apothecary ws auto on | off | status | now [n] | clear | log     # §3.6
+apothecary ws help                                                # full ws reference
 ```
 
 ### 4.8 Full IPC list (`qs -c apothecary ipc call <target> <fn>`)

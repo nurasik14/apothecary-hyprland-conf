@@ -117,6 +117,7 @@ SUPER+E superfile         SUPER+SHIFT+G game mode  SUPER+ALT+R repair     SUPER+
 apothecary on|off|status|light|dark|toggle|wallpaper next|prev|random|pick|reload|gamemode|repair
 apothecary ws [list] | ws <1-10> "Title" ["note"] | ws <n> --note "…" | ws <n> --clear | ws edit | ws show [n]
 apothecary ws auto on|off|status|now [n]|clear|log      # Claude labels desks that need it
+apothecary ws help                                      # full reference
 ```
 
 ## Art and credits
