@@ -380,6 +380,8 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
   reload          hyprctl reload + restart the Quickshell shell (if on)
   gamemode [on|off|toggle]
                   no animations/blur/gaps/widgets for games; off restores the theme (SUPER+SHIFT+G)
+  ws [list]       your title + note for workspaces 1–10 (shown in a card when you switch, and on bar hover)
+  ws <n> "Title" ["note"]  |  ws <n> --note "text"  |  ws <n> --clear  |  ws edit  |  ws show [n]
   repair          re-stop waybar/mako, restart the shell, re-apply the wallpaper (after JaKooLit scripts)
   session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
 
@@ -387,8 +389,64 @@ state: $STATE   repo: $REPO
 EOF
 }
 
+# ---------------------------------------------------------------------------------------------- workspace titles
+# ~/.config/apothecary/workspaces.json  {"1": {"title": "...", "note": "..."}, ...}  — read live by the shell
+# (Services/WorkspaceNotes.qml) and shown by Osd/WorkspaceCard.qml whenever you switch to that workspace.
+WS_FILE="$STATE/workspaces.json"
+
+ws_write() {                    # ws_write <jq filter> [jq args…] — rewrite in place (keeps the inode the shell watches)
+    have jq || die "jq is required for 'apothecary ws'"
+    [[ -s "$WS_FILE" ]] || echo '{}' >"$WS_FILE"
+    local tmp; tmp="$(mktemp "$CACHE/ws.XXXXXX")"
+    jq "$@" "$WS_FILE" >"$tmp" || { rm -f "$tmp"; die "could not update $WS_FILE (is it valid JSON?)"; }
+    cat "$tmp" >"$WS_FILE"; rm -f "$tmp"
+}
+ws_flash() { $QS_CMD ipc call workspace reveal "$1" >/dev/null 2>&1 || true; }
+ws_check() { [[ "$1" =~ ^([1-9]|10)$ ]] || die "workspace must be 1–10 (got '$1')"; }
+
+cmd_ws() {
+    case "${1:-list}" in
+        list|"")
+            [[ -s "$WS_FILE" ]] || echo '{}' >"$WS_FILE"
+            local i title note
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+                IFS=$'\t' read -r title note < <(jq -r --arg i "$i" '
+                    (.[$i] // {}) | (if type=="string" then {title:., note:""} else . end)
+                    | [(.title // "" | if .=="" then "—" else . end), (.note // "")] | @tsv' "$WS_FILE")
+                printf '  %2s  %s\n' "$i" "$title"
+                [[ -n "$note" ]] && printf '      %s\n' "$note"
+            done
+            say ""; say "set:  apothecary ws <1-10> \"Title\" [\"note\"]   ·   edit: apothecary ws edit" ;;
+        edit)
+            [[ -s "$WS_FILE" ]] || ws_write -n '[range(1;11)|{key:tostring, value:{title:"", note:""}}]|from_entries'
+            "${VISUAL:-${EDITOR:-nvim}}" "$WS_FILE"
+            jq empty "$WS_FILE" 2>/dev/null || warn "warning: $WS_FILE is not valid JSON — the shell keeps the last good copy" ;;
+        show)
+            local n="${2:-}"
+            if [[ -z "$n" ]]; then $QS_CMD ipc call workspace current; else ws_check "$n"; $QS_CMD ipc call workspace reveal "$n"; fi ;;
+        *)
+            local n="$1"; ws_check "$n"; shift
+            case "${1:-}" in
+                "")       jq -r --arg i "$n" '.[$i] // "—"' "$WS_FILE" 2>/dev/null || echo "—"; ws_flash "$n" ;;
+                --clear)  ws_write --arg i "$n" 'del(.[$i])'; say "workspace $n cleared" ;;
+                --note)   ws_write --arg i "$n" --arg note "${2:-}" \
+                              '.[$i] = ((.[$i] // {}) | if type=="string" then {title:.} else . end | .note = $note)'
+                          say "workspace $n note set"; ws_flash "$n" ;;
+                *)        local title="$1"
+                          if (( $# >= 2 )); then
+                              ws_write --arg i "$n" --arg t "$title" --arg note "$2" '.[$i] = {title:$t, note:$note}'
+                          else   # title only: keep an existing note
+                              ws_write --arg i "$n" --arg t "$title" \
+                                  '.[$i] = ((.[$i] // {}) | if type=="string" then {} else . end | .title = $t)'
+                          fi
+                          say "workspace $n → $title"; ws_flash "$n" ;;
+            esac ;;
+    esac
+}
+
 case "${1:-help}" in
     on)            cmd_on ;;
+    ws|workspace)  shift; cmd_ws "$@" ;;
     off)           cmd_off ;;
     status)        cmd_status ;;
     light|dark)    cmd_mode "$1" ;;

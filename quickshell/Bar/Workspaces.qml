@@ -60,6 +60,11 @@ Row {
                 onClicked: HyprlandState.go(ws.wid)
                 onWheel: ev => { HyprlandState.cycle(ev.angleDelta.y > 0 ? -1 : 1); ev.accepted = true; }
             }
+            BarTooltip {   // your title for this workspace (apothecary ws)
+                target: ws
+                shown: area.containsMouse
+                text: WorkspaceNotes.title(ws.wid).length > 0 ? ws.wid + " · " + WorkspaceNotes.title(ws.wid) : "Workspace " + ws.wid
+            }
         }
     }
 }

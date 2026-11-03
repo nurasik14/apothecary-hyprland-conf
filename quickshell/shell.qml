@@ -28,6 +28,7 @@ ShellRoot {
     PowerMenu {}
     WallpaperPicker {}
     Osd { id: osd }
+    WorkspaceCard { id: wsCard }
     DesktopWidgets {}
 
     // ------------------------------------------------------------ IPC (BRIEF §4)
@@ -84,6 +85,14 @@ ShellRoot {
         target: "osd"
         function volume(): void { osd.show("volume"); }
         function brightness(): void { osd.show("brightness"); }
+    }
+    IpcHandler {
+        target: "workspace"
+        // `reveal` (not `show`: the qs CLI swallows a function named show)
+        function reveal(id: int): void { wsCard.reveal(id); }
+        function current(): void { wsCard.reveal(HyprlandState.focusedId); }
+        function hide(): void { wsCard.hide(); }
+        function title(id: int): string { return WorkspaceNotes.title(id); }
     }
     IpcHandler {
         target: "shell"

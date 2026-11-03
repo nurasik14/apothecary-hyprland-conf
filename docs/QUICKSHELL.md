@@ -66,6 +66,7 @@ qs -c apothecary ipc call theme toggle
 qs -c apothecary ipc call theme set light|dark
 qs -c apothecary ipc call theme get
 qs -c apothecary ipc call osd volume|brightness
+qs -c apothecary ipc call workspace reveal <1-10> | current | hide | title <n>   # workspace card
 qs -c apothecary ipc call shell closeAll|status
 qs -c apothecary ipc show                                     # lists every target incl. widgets/brew (qs-widgets)
 ```
@@ -83,6 +84,7 @@ SUPER+W wallpapers · SUPER+I notification centre · SUPER+T theme toggle.
 - **Power**: Lock `hyprlock` · Logout `hyprctl dispatch exit` · Suspend `systemctl suspend` · Reboot `systemctl reboot` · Shutdown `systemctl poweroff`. Logout/Reboot/Shutdown arm on the first Enter/click and need a second one on the 印 Confirm seal. Letter keys L O S R P jump.
 - **Wallpapers**: files from `<repo>/assets/wallpapers/<mode>` (repo resolved by `Theme.repoDir`); current = `~/.config/apothecary/wallpaper-<mode>` (compared by file name so a symlinked path still matches). Apply = `apothecary wallpaper <path>` when `~/.local/bin/apothecary` exists, else `awww img <path> --transition-type grow --transition-duration 1.2 --transition-fps 165 --transition-bezier .22,1,.36,1` and the path is written to the state file.
 - **OSD**: shows on IPC and automatically on Pipewire sink volume/mute changes (after a 1.5 s arming delay at startup). Brightness reads/sets through `brightnessctl -m -c backlight` (class-filtered: the first device on this laptop is a NIC LED). When no backlight device exists (this machine under the NVIDIA driver: `/sys/class/backlight` is empty) the slip says `亮 · Brightness · no backlight device` instead of a fake value.
+- **Workspace card** (`Osd/WorkspaceCard.qml`, namespace `apothecary-wscard`, click-through): when the focused workspace changes to 1–10 (after a 1.5 s arming delay at startup) a paper slip shows the numeral seal, your title, `WORKSPACE n` and your note, then fades out. Text comes from `Services/WorkspaceNotes.qml` ← `~/.config/apothecary/workspaces.json` (`{"3": {"title": "Coding", "note": "…"}}`, a bare string = title only; watched live), written by `apothecary ws <n> "Title" ["note"]` / `ws <n> --note "…"` / `ws <n> --clear` / `ws edit` / `ws show [n]`. Hovering a bar numeral shows the title as a tooltip. Settings in `config.json → "workspace_card"`: `enabled` (true), `duration` ms (2600), `position` `"top"|"center"|"bottom"` ("top"), `show_untitled` (true).
 - **Mode**: `Theme.setMode()` (bar sun/moon chip, `theme` IPC) writes `~/.config/apothecary/mode` (or calls `apothecary light|dark` when installed); every surface cross-fades through Theme.
 
 ## Testing (what was verified on 2026-10-29)
