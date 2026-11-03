@@ -2,6 +2,17 @@
 
 Changes to the Apothecary Hyprland theme after the first public version. Newest first.
 
+## 2026-11-03 — Brightness on hybrid-GPU laptops
+
+### Fixed
+
+- Idle dimming (`hypr/hypridle.conf`) and the brightness OSD (`quickshell/Services/AudioService.qml`) now drive the
+  backlight of the *connected* display. The new helper `scripts/backlight-dev.sh` picks it. Before, they used
+  whichever device `brightnessctl` listed first, which on hybrid Intel + NVIDIA laptops is the unused `nvidia_0`, so
+  the screen never changed. The kernel parameter this needs (`acpi_backlight=native`) is in `docs/SUDO-STEPS.md`.
+- Known limitation: both files call the helper as `~/Projects/apothecary-hyprland/scripts/backlight-dev.sh`, so they
+  only work if the repo is cloned to that path.
+
 ## 2026-11-03 — Workspace titles
 
 ### Added
