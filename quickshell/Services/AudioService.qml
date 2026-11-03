@@ -47,10 +47,12 @@ Singleton {
     // ---------------------------------------------------------------- brightness
     property real brightness: 0
     property bool brightnessAvailable: false
-    // Only the backlight class: on this machine the first `brightnessctl` device is a NIC LED, not the panel.
+    // Use the backlight attached to a *connected* display: hybrid laptops expose several
+    // (intel_backlight for eDP-1, nvidia_0 for the unused dGPU output); brightnessctl's default picks the wrong one.
+    readonly property string pickBacklight: "dev=$(\"$HOME/Projects/apothecary-hyprland/scripts/backlight-dev.sh\"); "
     Process {
         id: brGet
-        command: ["brightnessctl", "-m", "-c", "backlight"]
+        command: ["sh", "-c", root.pickBacklight + "brightnessctl -m -d \"$dev\""]
         stdout: StdioCollector {
             onStreamFinished: {
                 // intel_backlight,backlight,12345,50%,24242
@@ -68,7 +70,7 @@ Singleton {
     Process {
         id: brSet
         property string value: "50%"
-        command: ["brightnessctl", "-m", "-c", "backlight", "set", value]
+        command: ["sh", "-c", root.pickBacklight + "brightnessctl -m -d \"$dev\" set \"$1\"", "sh", value]
         onExited: brGet.running = true
     }
     function refreshBrightness() { brGet.running = true; }
