@@ -382,6 +382,10 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
                   no animations/blur/gaps/widgets for games; off restores the theme (SUPER+SHIFT+G)
   ws [list]       your title + note for workspaces 1–10 (shown in a card when you switch, and on bar hover)
   ws <n> "Title" ["note"]  |  ws <n> --note "text"  |  ws <n> --clear  |  ws edit  |  ws show [n]
+  ws auto on|off|status|now [n]|clear|log
+                  let Claude (your plan, haiku) title workspaces that have windows but no title, and retitle
+                  its own labels when the apps change a lot; your titles are never touched.  ws <n> --auto
+                  hands one back to Claude
   repair          re-stop waybar/mako, restart the shell, re-apply the wallpaper (after JaKooLit scripts)
   session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
 
@@ -392,17 +396,51 @@ EOF
 # ---------------------------------------------------------------------------------------------- workspace titles
 # ~/.config/apothecary/workspaces.json  {"1": {"title": "...", "note": "..."}, ...}  — read live by the shell
 # (Services/WorkspaceNotes.qml) and shown by Osd/WorkspaceCard.qml whenever you switch to that workspace.
+# Entries with "auto": true were written by scripts/ws-autolabel.py (Claude); anything you set yourself is yours
+# and the auto-labeller never overwrites it.
 WS_FILE="$STATE/workspaces.json"
+WS_AUTO="$REPO/scripts/ws-autolabel.py"
 
 ws_write() {                    # ws_write <jq filter> [jq args…] — rewrite in place (keeps the inode the shell watches)
     have jq || die "jq is required for 'apothecary ws'"
     [[ -s "$WS_FILE" ]] || echo '{}' >"$WS_FILE"
     local tmp; tmp="$(mktemp "$CACHE/ws.XXXXXX")"
-    jq "$@" "$WS_FILE" >"$tmp" || { rm -f "$tmp"; die "could not update $WS_FILE (is it valid JSON?)"; }
-    cat "$tmp" >"$WS_FILE"; rm -f "$tmp"
+    (   flock 9                 # same lock as ws-autolabel.py
+        jq "$@" "$WS_FILE" >"$tmp" && cat "$tmp" >"$WS_FILE"
+    ) 9>>"$WS_FILE.lock" || { rm -f "$tmp"; die "could not update $WS_FILE (is it valid JSON?)"; }
+    rm -f "$tmp"
 }
 ws_flash() { $QS_CMD ipc call workspace reveal "$1" >/dev/null 2>&1 || true; }
 ws_check() { [[ "$1" =~ ^([1-9]|10)$ ]] || die "workspace must be 1–10 (got '$1')"; }
+ws_cfg()   {                    # ws_cfg <jq filter on config.json>  (same in-place write)
+    local cfg="$STATE/config.json" tmp; [[ -s "$cfg" ]] || echo '{}' >"$cfg"
+    tmp="$(mktemp "$CACHE/cfg.XXXXXX")"
+    jq "$@" "$cfg" >"$tmp" && cat "$tmp" >"$cfg"; rm -f "$tmp"
+}
+
+cmd_ws_auto() {
+    local cfg="$STATE/config.json"
+    case "${1:-status}" in
+        on)     have claude || [[ -x "$HOME/.local/bin/claude" ]] || die "the claude CLI is not installed"
+                ws_cfg '.workspace_auto = ((.workspace_auto // {}) + {enabled: true})'
+                say "auto-labelling ON — Claude (your plan, model $(jq -r '.workspace_auto.model // "haiku"' "$cfg")) names workspaces that need it"
+                say "your own titles are never overwritten · log: $CACHE/ws-auto.log"
+                pgrep -f '^qs -c apothecary' >/dev/null || say "note: the shell is not running (apothecary on) — the watcher runs inside it" ;;
+        off)    ws_cfg '.workspace_auto = ((.workspace_auto // {}) + {enabled: false})'
+                say "auto-labelling OFF (existing labels stay; 'apothecary ws auto clear' removes Claude's)" ;;
+        status) local en; en="$(jq -r '.workspace_auto.enabled // false' "$cfg" 2>/dev/null || echo false)"
+                say "enabled:  $en"
+                say "settings: $(jq -c '{model:"haiku",send_titles:true,settle:20,cooldown:600,max_per_hour:20} + (.workspace_auto // {}) | del(.enabled)' "$cfg" 2>/dev/null)"
+                say "watcher:  $(pgrep -f 'ws-autolabel.py$' >/dev/null && echo running || echo stopped)"
+                [[ -s "$CACHE/ws-auto.log" ]] && { say "last log lines:"; tail -n 5 "$CACHE/ws-auto.log" | sed 's/^/    /'; } ;;
+        now)    shift; local n="${1:-}"; [[ -z "$n" ]] || ws_check "$n"
+                if [[ -n "$n" ]]; then /usr/bin/python3 "$WS_AUTO" --once "$n" --force; else /usr/bin/python3 "$WS_AUTO" --once; fi ;;
+        clear)  ws_write 'with_entries(select((.value|type)=="string" or (.value.auto != true)))'
+                say "removed every auto label (yours are kept)" ;;
+        log)    tail -n "${2:-30}" "$CACHE/ws-auto.log" 2>/dev/null || say "no log yet" ;;
+        *)      die "usage: apothecary ws auto on|off|status|now [n]|clear|log" ;;
+    esac
+}
 
 cmd_ws() {
     case "${1:-list}" in
@@ -412,11 +450,14 @@ cmd_ws() {
             for i in 1 2 3 4 5 6 7 8 9 10; do
                 IFS=$'\t' read -r title note < <(jq -r --arg i "$i" '
                     (.[$i] // {}) | (if type=="string" then {title:., note:""} else . end)
-                    | [(.title // "" | if .=="" then "—" else . end), (.note // "")] | @tsv' "$WS_FILE")
+                    | [((.title // "" | if .=="" then "—" else . end) + (if .auto then "  (auto)" else "" end)),
+                       (.note // "")] | @tsv' "$WS_FILE")
                 printf '  %2s  %s\n' "$i" "$title"
                 [[ -n "$note" ]] && printf '      %s\n' "$note"
             done
-            say ""; say "set:  apothecary ws <1-10> \"Title\" [\"note\"]   ·   edit: apothecary ws edit" ;;
+            say ""; say "set:  apothecary ws <1-10> \"Title\" [\"note\"]   ·   edit: apothecary ws edit   ·   Claude: apothecary ws auto on" ;;
+        auto)
+            shift; cmd_ws_auto "$@" ;;
         edit)
             [[ -s "$WS_FILE" ]] || ws_write -n '[range(1;11)|{key:tostring, value:{title:"", note:""}}]|from_entries'
             "${VISUAL:-${EDITOR:-nvim}}" "$WS_FILE"
@@ -429,15 +470,17 @@ cmd_ws() {
             case "${1:-}" in
                 "")       jq -r --arg i "$n" '.[$i] // "—"' "$WS_FILE" 2>/dev/null || echo "—"; ws_flash "$n" ;;
                 --clear)  ws_write --arg i "$n" 'del(.[$i])'; say "workspace $n cleared" ;;
+                --auto)   ws_write --arg i "$n" 'del(.[$i])'; say "workspace $n handed back to Claude"
+                          /usr/bin/python3 "$WS_AUTO" --once "$n" ;;
                 --note)   ws_write --arg i "$n" --arg note "${2:-}" \
-                              '.[$i] = ((.[$i] // {}) | if type=="string" then {title:.} else . end | .note = $note)'
+                              '.[$i] = ((.[$i] // {}) | if type=="string" then {title:.} else . end | .note = $note | del(.auto, .sig, .at))'
                           say "workspace $n note set"; ws_flash "$n" ;;
                 *)        local title="$1"
                           if (( $# >= 2 )); then
                               ws_write --arg i "$n" --arg t "$title" --arg note "$2" '.[$i] = {title:$t, note:$note}'
                           else   # title only: keep an existing note
                               ws_write --arg i "$n" --arg t "$title" \
-                                  '.[$i] = ((.[$i] // {}) | if type=="string" then {} else . end | .title = $t)'
+                                  '.[$i] = ((.[$i] // {}) | if type=="string" then {} else . end | .title = $t | del(.auto, .sig, .at))'
                           fi
                           say "workspace $n → $title"; ws_flash "$n" ;;
             esac ;;

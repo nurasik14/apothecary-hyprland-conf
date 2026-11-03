@@ -141,7 +141,7 @@ Scope {
                         muted: true
                         font.letterSpacing: root.title.length > 0 ? 2 : 0
                         font.capitalization: root.title.length > 0 ? Font.AllUppercase : Font.MixedCase
-                        text: root.title.length > 0 ? "Workspace " + root.wid
+                        text: root.title.length > 0 ? "Workspace " + root.wid + (WorkspaceNotes.isAuto(root.wid) ? " · auto" : "")
                                                     : "no title yet · apothecary ws " + root.wid
                     }
                     Rectangle {   // ink rule between label and note
