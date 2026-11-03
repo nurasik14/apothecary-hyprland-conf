@@ -21,6 +21,7 @@ Desktop widgets (`quickshell/Widgets`, IPC targets `widgets` and `brew`) belong 
 | `Power/` | five hanging scrolls 锁 出 眠 启 关 | `apothecary-power` | overlay, scrim |
 | `Wallpapers/` | handscroll of thumbnails at the bottom | `apothecary-wallpapers` | overlay, scrim |
 | `Osd/` | paper slip with an ink bar (volume / brightness) | `apothecary-osd` | overlay, click-through |
+| `Osd/WorkspaceCard.qml` | workspace card: numeral seal · title · `WORKSPACE n` · note, on every switch to 1–10 | `apothecary-wscard` | overlay, click-through |
 | `Widgets/` (qs-widgets) | desktop cards | `apothecary-widgets` | bottom |
 
 Every surface is created per screen with `Variants { model: Quickshell.screens }`; modal overlays only show on the
@@ -36,6 +37,7 @@ focused monitor (`OverlayWindow.onlyFocusedScreen`).
 | `NetworkService` | nmcli wrapper (argument arrays only): `networks`, `vpns`, `wifiEnabled`, `airplane`, `wiredState`, `connect/disconnect/forget/rescan/setWifi/setAirplane/vpnUp/vpnDown`, `lastMessage/lastError/busy` |
 | `NotificationService` | the `NotificationServer` (org.freedesktop.Notifications) + tracked notes: `all`, `popups`, `groups`, `dnd`, `unread`, `dismiss/dismissAll/toggleDnd/invokeDefault` |
 | `AudioService` | Pipewire default sink volume/mute, brightness via `brightnessctl -m`; signals `volumeShown/brightnessShown` |
+| `WorkspaceNotes` | `~/.config/apothecary/workspaces.json`, watched: `title(id)`, `note(id)`, `has(id)`, `isAuto(id)`; runs `scripts/ws-autolabel.py` while `config.json → workspace_auto.enabled` |
 | `SoundService` | `play(name)` → `pw-play assets/sounds/<name>.wav`, honours `config.json {"sounds": false}` |
 | `ConfigService` | `~/.config/apothecary/config.json`, watched; `sounds`, `reducedMotion`, `timeoutLow/Normal`, `get("a.b.c", fallback)` |
 

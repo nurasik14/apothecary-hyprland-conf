@@ -59,6 +59,11 @@ How the switch works:
 | ![Terminals, dark](docs/screenshots/terminals-dark.webp) | ![Terminals, light](docs/screenshots/terminals-light.webp) |
 | **kitty + superfile + fastfetch** in lacquer | …and on paper |
 
+**Workspace card** — switch to a desk and a paper slip says what it is for; titles are yours (`apothecary ws`) or,
+if you turn it on, written by Claude (`· AUTO`).
+
+![Workspace cards: a hand-set title and a Claude-written one](docs/screenshots/workspace-card.webp)
+
 <sub>The screenshots show official light-novel / anime art used as wallpaper; the art files themselves are not distributed here — see *Art and credits*. Screenshots taken on the real machine (1920×1080), Wi-Fi name and window titles blanked.</sub>
 
 ## What you get
@@ -69,6 +74,10 @@ How the switch works:
 - **Paper-note notifications** — critical ones arrive as a red-sealed *imperial order*; notification centre with DND.
 - **Network panel** (nmcli: scan, connect with password, VPNs, inline errors), **power menu** of hanging scrolls,
   **wallpaper picker** (hand-scroll of thumbnails, per mode), ink-bar **OSD**.
+- **Workspace titles**: give each of the ten desks a title and a one-line note (`apothecary ws 3 "Coding" "…"`); a
+  paper card with the numeral seal floats in for ~2.6 s whenever you switch there, and the bar shows the title on
+  hover. Optional **Claude auto-labelling** (`apothecary ws auto on`): desks with windows but no title get one from
+  Claude (Haiku, through your logged-in Claude Code plan); titles you set are never overwritten.
 - **Desktop widgets** as framed cards with lacquer title bars: weather (Open-Meteo), music (MPRIS + album art),
   calendar, system info, cava, quote of the day, herb/poison of the day, a *brewing medicine* focus timer.
   Drag a card by its title bar to move it.
@@ -80,7 +89,7 @@ How the switch works:
 ## Install
 
 Requirements: Hyprland ≥ 0.56, Quickshell (`qs`) 0.3, awww (swww fork), kitty, ImageMagick 7, python3 + numpy,
-jq, pw-play, nmcli, playerctl. Fonts: Ma Shan Zheng, ZCOOL XiaoWei, LXGW WenKai, Shippori Mincho B1, Yuji Syuku,
+jq, pw-play, nmcli, playerctl. Optional: the `claude` CLI (Claude Code, logged in) for workspace auto-labelling. Fonts: Ma Shan Zheng, ZCOOL XiaoWei, LXGW WenKai, Shippori Mincho B1, Yuji Syuku,
 Cormorant Garamond, EB Garamond, JetBrainsMono Nerd Font, Noto Sans/Serif CJK.
 
 ```sh
@@ -96,7 +105,8 @@ Details: [docs/INSTALL.md](docs/INSTALL.md) · keybinds: [docs/KEYBINDS.md](docs
 a tour of Hyprland on this setup: [docs/HYPRLAND-GUIDE.md](docs/HYPRLAND-GUIDE.md) ·
 design system: [docs/DESIGN.md](docs/DESIGN.md) · shell: [docs/QUICKSHELL.md](docs/QUICKSHELL.md) ·
 widgets: [docs/WIDGETS.md](docs/WIDGETS.md) · apps: [docs/APPS.md](docs/APPS.md) ·
-steps that need root (SDDM, brightness kernel parameter): [docs/SUDO-STEPS.md](docs/SUDO-STEPS.md).
+steps that need root (SDDM, brightness kernel parameter): [docs/SUDO-STEPS.md](docs/SUDO-STEPS.md) ·
+what changed: [CHANGELOG.md](CHANGELOG.md).
 
 ## Daily use
 
@@ -105,6 +115,8 @@ SUPER+Space launcher      SUPER+T light/dark       SUPER+W wallpapers     SUPER+
 SUPER+N network           SUPER+I notifications    SUPER+Esc power        SUPER+B brew timer
 SUPER+E superfile         SUPER+SHIFT+G game mode  SUPER+ALT+R repair     SUPER+SHIFT+Space float window
 apothecary on|off|status|light|dark|toggle|wallpaper next|prev|random|pick|reload|gamemode|repair
+apothecary ws [list] | ws <1-10> "Title" ["note"] | ws <n> --note "…" | ws <n> --clear | ws edit | ws show [n]
+apothecary ws auto on|off|status|now [n]|clear|log      # Claude labels desks that need it
 ```
 
 ## Art and credits

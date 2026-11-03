@@ -14,7 +14,7 @@ import qs.Widgets
 
 /*  Apothecary Hyprland — Quickshell entry.  `qs -c apothecary`
  *  Surfaces (layer namespaces): apothecary-bar · apothecary-launcher · apothecary-notif · apothecary-notifcenter ·
- *  apothecary-network · apothecary-power · apothecary-wallpapers · apothecary-osd · apothecary-widgets (qs-widgets)
+ *  apothecary-network · apothecary-power · apothecary-wallpapers · apothecary-osd · apothecary-wscard · apothecary-widgets (qs-widgets)
  *  IPC: qs -c apothecary ipc call <target> <fn>   — see docs/QUICKSHELL.md
  */
 ShellRoot {

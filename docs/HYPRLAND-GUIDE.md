@@ -49,6 +49,8 @@ Notation: `SUPER` is the Windows key. `SUPER+SHIFT+Space` means hold SUPER and S
 
 Also good to know: `SUPER+SHIFT+S` screenshot and annotate · `SUPER+ALT+V` clipboard history ·
 `SUPER+ALT+E` emoji · `SUPER+SHIFT+G` game mode · `SUPER+Z` browser.
+Name a workspace: `apothecary ws 3 "Coding" "what it is for"` — a card shows it whenever you switch there; or let
+Claude do it with `apothecary ws auto on` (§3.6).
 
 ---
 
@@ -206,7 +208,8 @@ remembers it (`PersistWorkspaceLayout.sh`).
 | `SUPER+CTRL+F9…F12` | Push the whole workspace to the left/right/up/down monitor (only matters with an external screen) |
 
 Bar: the ten workspaces show as 一 … 十. Click one to jump there, or scroll over them to cycle. Absent desks are
-faint, occupied ones are inked, and the active one carries a red seal.
+faint, occupied ones are inked, and the active one carries a red seal. Hover a numeral to see the title you gave
+that workspace (§3.6).
 
 Plug in an HDMI monitor and the odd workspaces stay on the laptop while the even ones (2, 4, 6, 8, 10) move to
 `HDMI-A-1` (`UserConfigs/WorkspaceMonitors.conf`).
@@ -249,6 +252,72 @@ Also: tap-to-click, natural scrolling, and the touchpad turns off while you type
 | `SUPER+ALT` + wheel down | Zoom in ×2 around the cursor |
 | `SUPER+ALT` + wheel up | Zoom out ÷2 |
 | reset | `hyprctl keyword cursor:zoom_factor 1` |
+
+### 3.6 Workspace titles (the card)
+
+Each of the ten workspaces can carry a **title** and a one-line **note**. When you switch to a workspace (keys,
+bar click, wheel, gestures — anything that changes the focused workspace) a paper card floats in under the bar for
+about 2.6 s: the numeral seal (一 … 十), the title, `WORKSPACE n`, and the note. It never takes a click.
+
+```
+apothecary ws                         # list all ten
+apothecary ws 3 "Coding" "MCP server + course labs"
+apothecary ws 3 "Coding"              # title only, keeps the existing note
+apothecary ws 3 --note "new note"     # note only
+apothecary ws 3 --clear
+apothecary ws edit                    # open workspaces.json in $EDITOR (nvim)
+apothecary ws show 3                  # flash the card now
+```
+
+Titles and notes grow up to about 50 characters before the title is cut with "…" and the note wraps (3 lines max).
+Everything lives in `~/.config/apothecary/workspaces.json` and is picked up live, no reload:
+
+```json
+{ "3": { "title": "Coding", "note": "MCP server + course labs" },
+  "5": "Music" }
+```
+
+Card settings go in `~/.config/apothecary/config.json`:
+
+```json
+"workspace_card": { "enabled": true, "duration": 2600, "position": "top", "show_untitled": true }
+```
+
+`position` is `"top"` (under the bar), `"center"` or `"bottom"` (above the OSD). With `show_untitled: false` the
+card only appears on workspaces that have a title.
+
+**Let Claude label them.** `apothecary ws auto on` starts a small watcher inside the shell
+(`scripts/ws-autolabel.py`). It listens to Hyprland's window events, waits until things settle (20 s without a
+window opening/closing/moving), and asks Claude for a title and note when a workspace
+
+- has windows but **no title**, or
+- has a label **Claude wrote earlier** that is older than 10 minutes and whose set of apps has **mostly changed**.
+
+Titles you set yourself are never touched. Claude's labels are marked `(auto)` in `apothecary ws` and
+`WORKSPACE n · AUTO` on the card, and are removed when their workspace becomes empty. Setting a title by hand turns an
+auto label into yours.
+
+```
+apothecary ws auto on | off | status
+apothecary ws auto now          # one pass now: label every workspace that needs it
+apothecary ws auto now 3        # relabel workspace 3 now, even if you titled it yourself
+apothecary ws 3 --auto          # drop your title on 3 and let Claude label it
+apothecary ws auto clear        # remove all of Claude's labels (yours stay)
+apothecary ws auto log          # what it did and why (~/.cache/apothecary/ws-auto.log)
+```
+
+It runs `claude -p --model haiku` with no tools, MCP servers or settings, so each label is one short request (~5 s)
+counted against your **Claude plan**: `ANTHROPIC_API_KEY` is removed from its environment so it never bills an API
+key. What is sent: each window's app class and title, plus the other workspaces' titles (so names stay distinct).
+Tune it under `config.json → "workspace_auto"`:
+
+```json
+"workspace_auto": { "enabled": true, "model": "haiku", "send_titles": true,
+                    "settle": 20, "cooldown": 600, "max_per_hour": 20 }
+```
+
+`send_titles: false` sends app classes only (more private, vaguer labels); `max_per_hour` caps the calls. The watcher
+lives and dies with the shell, so it only runs while the theme is on.
 
 ---
 
@@ -324,6 +393,8 @@ apothecary wallpaper next | prev | random | current | pick | <path>
 apothecary reload            # hyprctl reload + restart the shell
 apothecary gamemode [on|off|toggle]
 apothecary repair
+apothecary ws [list] | ws <1-10> "Title" ["note"] | ws <n> --note "…" | --clear | --auto | ws edit | ws show [n]
+apothecary ws auto on | off | status | now [n] | clear | log     # §3.6
 ```
 
 ### 4.8 Full IPC list (`qs -c apothecary ipc call <target> <fn>`)
@@ -337,6 +408,7 @@ apothecary repair
 | `notifications` | `toggle` `open` `close` `dnd` `clear` `status` |
 | `theme` | `toggle` `set light\|dark` `get` |
 | `osd` | `volume` `brightness` |
+| `workspace` | `reveal <1-10>` `current` `hide` `title <n>` (the workspace card, §3.6) |
 | `widgets` | `toggle` `reveal` `hide` `layout` `demo on\|off` `status` (use `reveal`, because `show` collides with `qs ipc show`) |
 | `brew` | `toggle` `start <minutes>` `reset` `status` |
 | `shell` | `closeAll` `status` |
