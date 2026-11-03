@@ -72,9 +72,14 @@ Scope {
 
             Rectangle {
                 id: card
-                readonly property int pad: Theme.space.lg + 4
-                readonly property int textWidth: Math.min(440, Math.max(200, titleText.implicitWidth, subText.implicitWidth,
-                                                                          noteMetrics.width + 2))
+                readonly property int pad: Theme.space.md
+                // title and note each grow up to ~50 characters (measured in their own font); then the title
+                // elides and the note wraps.  TextMetrics, not implicitWidth: an elided Text reports its clipped width.
+                readonly property int titleMax: Math.ceil(titleLine.advanceWidth) + 4
+                readonly property int noteMax: Math.ceil(noteLine.advanceWidth) + 4
+                readonly property int textWidth: Math.max(160, Math.ceil(subMetrics.advanceWidth) + 4,
+                                                          Math.min(titleMax, Math.ceil(titleMetrics.advanceWidth) + 4),
+                                                          Math.min(noteMax, Math.ceil(noteMetrics.advanceWidth) + 4))
                 anchors.centerIn: parent
                 width: pad * 2 + seal.width + Theme.space.lg + textWidth
                 height: Math.max(seal.height, textCol.implicitHeight) + pad * 2
@@ -102,9 +107,9 @@ Scope {
 
                 Seal {
                     id: seal
-                    x: card.pad
+                    x: card.pad + 2
                     anchors.verticalCenter: parent.verticalCenter
-                    size: 56
+                    size: 40
                     rough: false
                     glyph: TimeService.numeral(root.wid)
                     label: "Workspace " + root.wid
@@ -115,7 +120,7 @@ Scope {
                     x: seal.x + seal.width + Theme.space.lg
                     width: card.textWidth
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 4
+                    spacing: 2
 
                     Text {
                         id: titleText
@@ -123,7 +128,7 @@ Scope {
                         text: root.title.length > 0 ? root.title : "Workspace " + root.wid
                         // CJK titles get the brush face, Latin ones the display serif
                         font.family: /[\u3040-\u30ff\u3400-\u9fff]/.test(text) ? Theme.brushFamilyFor(text) : Theme.fontSerif
-                        font.pixelSize: 30
+                        font.pixelSize: 24
                         font.weight: Font.DemiBold
                         color: Theme.text
                         elide: Text.ElideRight
@@ -147,15 +152,20 @@ Scope {
                     InkText {
                         id: noteText
                         visible: root.note.length > 0
-                        width: parent.width
+                        width: Math.min(parent.width, card.noteMax)
                         role: "body_latin"
                         text: root.note
                         wrapMode: Text.WordWrap
-                        maximumLineCount: 4
+                        maximumLineCount: 3
                         elide: Text.ElideRight
                     }
                 }
+                readonly property string fifty: "The quick brown fox jumps over the lazy dog again."   // 50 chars
+                TextMetrics { id: titleMetrics; font: titleText.font; text: titleText.text }
+                TextMetrics { id: titleLine; font: titleText.font; text: card.fifty }
+                TextMetrics { id: subMetrics; font: subText.font; text: subText.text }
                 TextMetrics { id: noteMetrics; font: noteText.font; text: root.note }
+                TextMetrics { id: noteLine; font: noteText.font; text: card.fifty }
             }
         }
     }
