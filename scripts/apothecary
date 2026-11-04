@@ -384,9 +384,9 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
   ws [list]       your title + note for workspaces 1–10 (shown in a card when you switch, and on bar hover)
   ws <n> "Title" ["note"]  |  ws <n> --note "text"  |  ws <n> --clear  |  ws edit  |  ws show [n]
   ws auto on|off|status|now [n]|clear|log      (apothecary ws help = full reference)
-                  let Claude (your plan, haiku) title workspaces that have windows but no title, and retitle
-                  its own labels when the apps change a lot; your titles are never touched.  ws <n> --auto
-                  hands one back to Claude
+                  let Claude (your plan, haiku) title untitled workspaces, rewrite a title + note that no
+                  longer match the windows, and reset workspaces that stayed empty for 10 min.
+                  ws <n> --pin protects one; ws <n> --auto hands one back to Claude
   brew [status]   the 煎 brew timer: brew set <brew> [rest] (any length: 50, 1h30, 90s; rest 0 = none) ·
                   brew set = dialog (SUPER+SHIFT+B) · brew start [brew] [rest] · toggle · reset · add <dur>
                   (apothecary brew help = full reference)
@@ -400,8 +400,8 @@ EOF
 # ---------------------------------------------------------------------------------------------- workspace titles
 # ~/.config/apothecary/workspaces.json  {"1": {"title": "...", "note": "..."}, ...}  — read live by the shell
 # (Services/WorkspaceNotes.qml) and shown by Osd/WorkspaceCard.qml whenever you switch to that workspace.
-# Entries with "auto": true were written by scripts/ws-autolabel.py (Claude); anything you set yourself is yours
-# and the auto-labeller never overwrites it.
+# Entries with "auto": true were written by scripts/ws-autolabel.py (Claude). While auto-labelling is on it also
+# rewrites titles that no longer match their windows and resets long-empty workspaces — except "pinned": true ones.
 WS_FILE="$STATE/workspaces.json"
 WS_AUTO="$REPO/scripts/ws-autolabel.py"
 
@@ -428,12 +428,13 @@ apothecary ws — titles and notes for workspaces 1–10
 A card with the title and note appears whenever you switch to that workspace (theme on);
 hovering a numeral in the bar shows the title.
 
-  ws | ws list                    list all ten (Claude's labels are marked "(auto)")
+  ws | ws list                    list all ten (Claude's labels are marked "(auto)", protected ones "(pinned)")
   ws <n>                          print workspace n's entry and flash its card
   ws <n> "Title" ["note"]         set a title (and note); title only keeps the existing note
   ws <n> --note "text"            set only the note
   ws <n> --clear                  remove the title and note
   ws <n> --auto                   drop your title and let Claude label n now
+  ws <n> --pin | --unpin          protect n's title + note from rewrites and resets (or stop protecting it)
   ws edit                         open workspaces.json in \$VISUAL / \$EDITOR (default nvim)
   ws show [n]                     flash the card for n (default: current workspace)
   ws help                         this help
@@ -441,24 +442,34 @@ hovering a numeral in the bar shows the title.
 Claude auto-labelling (off by default; uses your logged-in Claude Code plan, model haiku):
   ws auto on | off                start / stop the watcher (runs inside the shell)
   ws auto status                  enabled?, settings, watcher running?, last log lines
-  ws auto now [n]                 label every workspace that needs it now; with n: relabel n even if you titled it
+  ws auto now [n]                 label untitled + check every titled workspace now (no waiting);
+                                  with n: relabel n unconditionally
   ws auto clear                   remove all of Claude's labels (yours stay)
   ws auto log [lines]             what it did and why
   ws auto help                    this help
 
-Claude labels a workspace when it has windows but no title, or when its auto label is older than 10 min and its
-apps mostly changed. Titles you set yourself are never overwritten.
+While it is on, for every workspace that is not pinned:
+  label   windows but no title           → Claude writes a title + note (a note you wrote is kept)
+  check   the windows changed            → Claude compares the title + note with the windows and rewrites both
+                                           if they clearly no longer match (yours too). Checked when the apps
+                                           change, or when only window titles changed and the last check is older
+                                           than recheck (30 min); a title is left alone for cooldown (10 min) after
+                                           it was set
+  reset   empty for reset_after (10 min) → title + note removed (reset_after 0 = never)
+Set manage_manual false to keep check + reset off your own titles. Every rewrite logs the old text.
 
 Files:
   titles    $WS_FILE
   settings  $STATE/config.json  → "workspace_card": {enabled, duration, position, show_untitled}
-                                   "workspace_auto": {enabled, model, send_titles, settle, cooldown, max_per_hour}
+                                   "workspace_auto": {enabled, model, send_titles, settle, cooldown, recheck,
+                                                      reset_after, manage_manual, max_per_hour}
   log       $CACHE/ws-auto.log
 Docs: $REPO/docs/HYPRLAND-GUIDE.md §3.6
 
 Examples:
   apothecary ws 3 "Coding" "MCP server + course labs"
   apothecary ws 3 --note "debugging the scrobbler"
+  apothecary ws 3 --pin            keep "Coding" even when 3 is empty or shows something else
   apothecary ws auto on
 EOF
 }
@@ -469,13 +480,14 @@ cmd_ws_auto() {
         on)     have claude || [[ -x "$HOME/.local/bin/claude" ]] || die "the claude CLI is not installed"
                 ws_cfg '.workspace_auto = ((.workspace_auto // {}) + {enabled: true})'
                 say "auto-labelling ON — Claude (your plan, model $(jq -r '.workspace_auto.model // "haiku"' "$cfg")) names workspaces that need it"
-                say "your own titles are never overwritten · log: $CACHE/ws-auto.log"
+                say "it also rewrites titles that no longer match and resets empty workspaces after $(jq -r '.workspace_auto.reset_after // 600' "$cfg") s"
+                say "protect one: apothecary ws <n> --pin · log: $CACHE/ws-auto.log"
                 pgrep -f '^qs -c apothecary' >/dev/null || say "note: the shell is not running (apothecary on) — the watcher runs inside it" ;;
         off)    ws_cfg '.workspace_auto = ((.workspace_auto // {}) + {enabled: false})'
                 say "auto-labelling OFF (existing labels stay; 'apothecary ws auto clear' removes Claude's)" ;;
         status) local en; en="$(jq -r '.workspace_auto.enabled // false' "$cfg" 2>/dev/null || echo false)"
                 say "enabled:  $en"
-                say "settings: $(jq -c '{model:"haiku",send_titles:true,settle:20,cooldown:600,max_per_hour:20} + (.workspace_auto // {}) | del(.enabled)' "$cfg" 2>/dev/null)"
+                say "settings: $(jq -c '{model:"haiku",send_titles:true,settle:20,cooldown:600,recheck:1800,reset_after:600,manage_manual:true,max_per_hour:20} + (.workspace_auto // {}) | del(.enabled)' "$cfg" 2>/dev/null)"
                 say "watcher:  $(pgrep -f 'ws-autolabel.py$' >/dev/null && echo running || echo stopped)"
                 [[ -s "$CACHE/ws-auto.log" ]] && { say "last log lines:"; tail -n 5 "$CACHE/ws-auto.log" | sed 's/^/    /'; } ;;
         now)    shift; local n="${1:-}"; [[ -z "$n" ]] || ws_check "$n"
@@ -496,7 +508,8 @@ cmd_ws() {
             for i in 1 2 3 4 5 6 7 8 9 10; do
                 IFS=$'\t' read -r title note < <(jq -r --arg i "$i" '
                     (.[$i] // {}) | (if type=="string" then {title:., note:""} else . end)
-                    | [((.title // "" | if .=="" then "—" else . end) + (if .auto then "  (auto)" else "" end)),
+                    | [((.title // "" | if .=="" then "—" else . end) + (if .auto then "  (auto)" else "" end)
+                         + (if .pinned then "  (pinned)" else "" end)),
                        (.note // "")] | @tsv' "$WS_FILE")
                 printf '  %2s  %s\n' "$i" "$title"
                 [[ -n "$note" ]] && printf '      %s\n' "$note"
@@ -522,6 +535,10 @@ cmd_ws() {
                 --clear)  ws_write --arg i "$n" 'del(.[$i])'; say "workspace $n cleared" ;;
                 --auto)   ws_write --arg i "$n" 'del(.[$i])'; say "workspace $n handed back to Claude"
                           /usr/bin/python3 "$WS_AUTO" --once "$n" ;;
+                --pin)    ws_write --arg i "$n" '.[$i] = ((.[$i] // {}) | if type=="string" then {title:., note:""} else . end | .pinned = true)'
+                          say "workspace $n pinned — Claude will not rewrite or reset it" ;;
+                --unpin)  ws_write --arg i "$n" 'if .[$i] | type == "object" then .[$i] |= del(.pinned) else . end'
+                          say "workspace $n unpinned" ;;
                 help|-h|--help) cmd_ws_help ;;
                 --*)      [[ "$1" == --note ]] || { warn "unknown option: ws $n $1"; cmd_ws_help >&2; exit 1; }
                           ws_write --arg i "$n" --arg note "${2:-}" \
@@ -529,7 +546,8 @@ cmd_ws() {
                           say "workspace $n note set"; ws_flash "$n" ;;
                 *)        local title="$1"
                           if (( $# >= 2 )); then
-                              ws_write --arg i "$n" --arg t "$title" --arg note "$2" '.[$i] = {title:$t, note:$note}'
+                              ws_write --arg i "$n" --arg t "$title" --arg note "$2" \
+                                  '.[$i] = ({title:$t, note:$note} + (if (.[$i]|type)=="object" and .[$i].pinned then {pinned:true} else {} end))'
                           else   # title only: keep an existing note
                               ws_write --arg i "$n" --arg t "$title" \
                                   '.[$i] = ((.[$i] // {}) | if type=="string" then {} else . end | .title = $t | del(.auto, .sig, .at))'

@@ -1,28 +1,33 @@
 #!/usr/bin/python3
-"""ws-autolabel — let Claude (your Claude plan, via the `claude` CLI) title workspaces 1–10 when they need it.
+"""ws-autolabel — let Claude (your Claude plan, via the `claude` CLI) keep the titles of workspaces 1–10 current.
 
-    ws-autolabel.py                 daemon: watch Hyprland, label workspaces that need it (started by the shell
+    ws-autolabel.py                 daemon: watch Hyprland and act when needed (started by the shell
                                     while config.json → workspace_auto.enabled is true)
-    ws-autolabel.py --once [N]      one pass now (all workspaces that need it, or just N)
-    ws-autolabel.py --once N --force   relabel N even if it has a title (also a manual one)
+    ws-autolabel.py --once [N]      one pass now: label / check every workspace (or just N), no waiting
+    ws-autolabel.py --once N --force   relabel N unconditionally (also a pinned one)
 
-"Needs a label" means:
-  * the workspace has windows and no title at all, or
-  * it was auto-labelled and its set of apps has changed a lot since (Jaccard < 0.5), and the last
-    auto label is older than `cooldown` seconds.
-Titles you set yourself (`apothecary ws N "…"`) are never touched by the daemon. Auto labels of workspaces that
-became empty are removed. Labels are written to ~/.config/apothecary/workspaces.json with "auto": true.
+What it does (a pinned entry — `apothecary ws N --pin` — is never touched):
+  * label:  a workspace has windows but no title → Claude writes a title + note (your note is kept if it fits)
+  * check:  a titled workspace's windows changed → Claude is shown the current title + note and the windows;
+            if they no longer match, both are rewritten. Checked when the app set changes, or when only window
+            titles changed and the last check is older than `recheck`. A title is left alone for `cooldown`
+            seconds after it was set (by you or by Claude).
+  * reset:  a workspace stayed empty for `reset_after` seconds → its title + note are removed (0 = never).
+With manage_manual false, titles you set yourself are skipped by check and reset (the old behaviour).
+Labels it writes are stored in ~/.config/apothecary/workspaces.json with "auto": true.
 
-config.json → "workspace_auto": { "enabled": false, "model": "haiku", "send_titles": true,
-                                   "settle": 20, "cooldown": 600, "max_per_hour": 20 }
+config.json → "workspace_auto": { "enabled": false, "model": "haiku", "send_titles": true, "settle": 20,
+                                   "cooldown": 600, "recheck": 1800, "reset_after": 600,
+                                   "manage_manual": true, "max_per_hour": 20 }
 Window classes (and titles unless send_titles is false) are sent to Claude. Calls count against your plan:
 ANTHROPIC_API_KEY is removed from the child environment so the CLI uses the logged-in subscription.
-Log: ~/.cache/apothecary/ws-auto.log
+Log: ~/.cache/apothecary/ws-auto.log   timers: ~/.cache/apothecary/ws-auto-state.json
 """
 import fcntl
 import json
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -37,19 +42,36 @@ WS_FILE = STATE / "workspaces.json"
 LOCK_FILE = STATE / "workspaces.json.lock"
 CONFIG = STATE / "config.json"
 LOG = CACHE / "ws-auto.log"
+STATE_FILE = CACHE / "ws-auto-state.json"     # empty-since / last-check timers (survive shell reloads)
+PID_FILE = CACHE / "ws-auto.pid"
 
 SCHEMA = json.dumps({
     "type": "object",
     "properties": {"title": {"type": "string", "maxLength": 24}, "note": {"type": "string", "maxLength": 50}},
     "required": ["title", "note"], "additionalProperties": False,
 })
+CHECK_SCHEMA = json.dumps({
+    "type": "object",
+    "properties": {"fits": {"type": "boolean"},
+                   "title": {"type": "string", "maxLength": 24}, "note": {"type": "string", "maxLength": 50}},
+    "required": ["fits", "title", "note"], "additionalProperties": False,
+})
+STYLE = ("Title: 1-3 words, max 24 characters, Title Case, no emoji, no quotes. Note: one plain line, max 50 "
+         "characters, saying what is going on there. Keep it distinct from the other workspaces' titles. Never "
+         "include secrets, emails, or personal names that appear in window titles.")
 SYSTEM = ("You name virtual desktop workspaces for a CS student's Linux desktop. From the open windows, infer what "
-          "the workspace is FOR (the activity or project), not a list of apps. Title: 1-3 words, max 24 characters, "
-          "Title Case, no emoji, no quotes. Note: one plain line, max 50 characters, saying what is going on there. "
-          "Keep it distinct from the other workspaces' titles. Never include secrets, emails, or personal names "
-          "that appear in window titles.")
+          "the workspace is FOR (the activity or project), not a list of apps. " + STYLE)
+CHECK_SYSTEM = ("You keep the titles of virtual desktop workspaces on a CS student's Linux desktop accurate. You get "
+                "a workspace's current title and note and the windows open on it now. Decide whether the title and "
+                "note still describe what the workspace is used for. Be lenient: terminals, coding-agent CLIs "
+                "(hermes, claude), file managers, music or video players and a browser on an unrelated tab are "
+                "generic and fit almost any activity; a title the user wrote may name a project the windows only "
+                "hint at. Answer fits=false only when the windows clearly show a different activity. If it fits, "
+                "return fits=true with the current title and note unchanged. If not, return fits=false and a new "
+                "title and note for what the windows show. " + STYLE)
 
-DEFAULTS = {"enabled": False, "model": "haiku", "send_titles": True, "settle": 20, "cooldown": 600, "max_per_hour": 20}
+DEFAULTS = {"enabled": False, "model": "haiku", "send_titles": True, "settle": 20, "cooldown": 600,
+            "recheck": 1800, "reset_after": 600, "manage_manual": True, "max_per_hour": 20}
 
 
 def log(msg):
@@ -113,6 +135,28 @@ def entry(notes, ws):
     return {"title": e, "note": ""} if isinstance(e, str) else e
 
 
+def has_text(e):
+    return bool(e and (e.get("title") or e.get("note")))
+
+
+def load_state():
+    try:
+        st = json.loads(STATE_FILE.read_text())
+    except Exception:
+        st = {}
+    for k in ("empty_since", "seen", "checked"):
+        if not isinstance(st.get(k), dict):
+            st[k] = {}
+    return st
+
+
+def save_state(st):
+    CACHE.mkdir(parents=True, exist_ok=True)
+    tmp = STATE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(st, indent=1))
+    os.replace(tmp, STATE_FILE)        # nothing watches this file, a rename is fine
+
+
 # ------------------------------------------------------------------------------------------- Hyprland
 def hypr_env():
     env = dict(os.environ)
@@ -158,6 +202,13 @@ def signature(wins):
     return sorted({w["class"].lower() for w in wins})
 
 
+def fingerprint(wins, cfg):
+    """what a check looked at: classes, plus window titles when they are sent"""
+    if not cfg["send_titles"]:
+        return signature(wins)
+    return sorted(f'{w["class"].lower()}|{w["title"]}' for w in wins)
+
+
 def jaccard(a, b):
     a, b = set(a), set(b)
     return 1.0 if not a and not b else len(a & b) / len(a | b)
@@ -168,22 +219,25 @@ def claude_bin():
     return shutil.which("claude") or str(HOME / ".local/bin/claude")
 
 
-def ask_claude(ws, wins, notes, cfg):
+def _others(ws, notes):
     others = []
     for k in sorted(notes, key=lambda x: int(x) if x.isdigit() else 99):
         o = entry(notes, k)
         if k != str(ws) and o and o.get("title"):
             others.append(f'{k}: {o["title"]}')
-    lines = []
-    for w in wins:
-        lines.append(f'- {w["class"]}' + (f' — "{w["title"]}"' if cfg["send_titles"] and w["title"] else ""))
-    prompt = (f"Workspace {ws} has these windows:\n" + "\n".join(lines) +
-              ("\n\nOther workspaces are titled:\n" + "\n".join(others) if others else "") +
-              "\n\nGive this workspace a title and a one-line note.")
+    return ("\n\nOther workspaces are titled:\n" + "\n".join(others)) if others else ""
+
+
+def _windows(wins, cfg):
+    return "\n".join(f'- {w["class"]}' + (f' — "{w["title"]}"' if cfg["send_titles"] and w["title"] else "")
+                     for w in wins)
+
+
+def _claude(prompt, system, schema, cfg):
     env = {k: v for k, v in os.environ.items() if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
     cmd = [claude_bin(), "-p", "--model", str(cfg["model"]), "--tools", "", "--strict-mcp-config",
            "--setting-sources", "", "--no-session-persistence", "--output-format", "json",
-           "--json-schema", SCHEMA, "--system-prompt", SYSTEM, prompt]
+           "--json-schema", schema, "--system-prompt", system, prompt]
     CACHE.mkdir(parents=True, exist_ok=True)
     p = subprocess.run(cmd, cwd=CACHE, env=env, capture_output=True, text=True, timeout=90)
     if p.returncode != 0:
@@ -192,9 +246,30 @@ def ask_claude(ws, wins, notes, cfg):
     out = d.get("structured_output") or json.loads(d.get("result") or "{}")
     title = " ".join(str(out.get("title", "")).split())[:24].strip()
     note = " ".join(str(out.get("note", "")).split())[:50].strip()
+    return out, title, note, d
+
+
+def ask_claude(ws, wins, notes, cfg):
+    """→ (title, note) for an untitled workspace"""
+    prompt = (f"Workspace {ws} has these windows:\n" + _windows(wins, cfg) + _others(ws, notes) +
+              "\n\nGive this workspace a title and a one-line note.")
+    _, title, note, d = _claude(prompt, SYSTEM, SCHEMA, cfg)
     if not title:
         raise RuntimeError(f"empty title in reply: {d.get('result')!r}")
     return title, note
+
+
+def check_claude(ws, wins, e, notes, cfg):
+    """→ (fits, title, note): do the current title + note still match the windows?"""
+    prompt = (f'Workspace {ws} is titled "{e.get("title", "")}"' +
+              (f' with the note "{e["note"]}"' if e.get("note") else " (no note)") +
+              ".\nIts windows now:\n" + _windows(wins, cfg) + _others(ws, notes) +
+              "\n\nDo the title and note still match? If not, give a new title and note.")
+    out, title, note, d = _claude(prompt, CHECK_SYSTEM, CHECK_SCHEMA, cfg)
+    fits = out.get("fits") is True
+    if not fits and not title:
+        raise RuntimeError(f"empty title in reply: {d.get('result')!r}")
+    return fits, title, note
 
 
 # ------------------------------------------------------------------------------------------- the decision
@@ -203,65 +278,120 @@ class Labeller:
         self.calls = []                  # timestamps, for max_per_hour
         self.lock = threading.Lock()
 
-    def need(self, ws, wins, e, cfg):
-        """→ reason string, 'clear', or None"""
-        if e is not None and not e.get("auto"):
-            return None                                          # yours: hands off
+    @staticmethod
+    def need(ws, wins, e, cfg, st, now, eager=False):
+        """→ None | "reset" | "label: <why>" | "check: <why>"   (pure: easy to test)
+        eager = a manual `--once` pass: skip the cooldown / recheck waits."""
+        k = str(ws)
+        if e is not None and e.get("pinned"):
+            return None                                          # pinned: hands off
+        if e is not None and not e.get("auto") and not cfg["manage_manual"] and has_text(e):
+            return None                                          # yours, and manage_manual is off
         if not wins:
-            return "clear" if e is not None else None
-        if e is None or not e.get("title"):
-            return "untitled"
-        if jaccard(e.get("sig", []), signature(wins)) < 0.5 and time.time() - e.get("at", 0) > cfg["cooldown"]:
-            return "apps changed"
+            if not has_text(e) or float(cfg["reset_after"]) <= 0:
+                return None
+            since = st["empty_since"].get(k, now)
+            return "reset" if now - since >= float(cfg["reset_after"]) else None
+        if not e or not e.get("title"):
+            return "label: untitled"
+        seen = st["seen"].get(k, {})
+        if not eager and now - seen.get("since", now) < float(cfg["cooldown"]):
+            return None                                          # set recently: give it time
+        chk = st["checked"].get(k)
+        if chk is None:
+            return "check: not checked yet"
+        if chk.get("classes") != signature(wins):
+            return "check: apps changed"
+        if chk.get("fp") != fingerprint(wins, cfg) and (eager or now - chk.get("at", 0) >= float(cfg["recheck"])):
+            return "check: windows changed"
         return None
 
-    def run_pass(self, only=None, force=False):
+    def _budget(self, ws, why, cfg):
+        now = time.time()
+        self.calls = [t for t in self.calls if now - t < 3600]
+        if len(self.calls) >= int(cfg["max_per_hour"]):
+            log(f"ws {ws}: {why} — skipped, max_per_hour={cfg['max_per_hour']} reached")
+            return False
+        self.calls.append(now)
+        return True
+
+    def run_pass(self, only=None, force=False, eager=False):
         with self.lock:
             cfg = settings()
             by = windows_by_ws()
             notes = read_notes()
             focus = focused_ws()
+            st = load_state()
+            now = time.time()
             done = 0
+            for ws in range(1, 11):                              # timers: keep them for all ten
+                k, e = str(ws), entry(notes, ws)
+                if by.get(ws):
+                    st["empty_since"].pop(k, None)
+                else:
+                    st["empty_since"].setdefault(k, now)
+                val = [e.get("title", ""), e.get("note", "")] if has_text(e) else None
+                if st["seen"].get(k, {}).get("val") != val:      # new / edited text: restart its clock
+                    st["seen"][k] = {"val": val, "since": now}
+                    st["checked"].pop(k, None)
             for ws in ([only] if only else range(1, 11)):
-                wins = by.get(ws, [])
-                e = entry(notes, ws)
-                if force and not wins:
-                    log(f"ws {ws}: no windows, nothing to label")
-                    continue
-                why = "forced" if force else self.need(ws, wins, e, cfg)
+                k, wins, e = str(ws), by.get(ws, []), entry(notes, ws)
+                if force:
+                    if not wins:
+                        log(f"ws {ws}: no windows, nothing to label")
+                        continue
+                    why = "label: forced"
+                else:
+                    why = self.need(ws, wins, e, cfg, st, now, eager=eager)
                 if why is None:
                     continue
-                if why == "clear":
-                    if e is not None and e.get("auto"):
-                        with Notes() as n:
-                            if n.ok and str(ws) in n.data and (entry(n.data, ws) or {}).get("auto"):
-                                del n.data[str(ws)]; n.dirty = True
-                        log(f"ws {ws}: empty → removed auto label")
+                if why == "reset":
+                    with Notes() as n:
+                        cur = entry(n.data, ws)
+                        if n.ok and cur == e and k in n.data:    # unchanged since we looked
+                            del n.data[k]; n.dirty = True
+                    if n.ok and cur == e:
+                        mins = int((now - st["empty_since"].get(k, now)) // 60)
+                        log(f"ws {ws}: empty for {mins} min → reset (was {e.get('title', '')!r} / {e.get('note', '')!r})")
+                        st["seen"].pop(k, None); st["checked"].pop(k, None)
                     continue
-                now = time.time()
-                self.calls = [t for t in self.calls if now - t < 3600]
-                if len(self.calls) >= int(cfg["max_per_hour"]):
-                    log(f"ws {ws}: needs a label ({why}) but max_per_hour={cfg['max_per_hour']} reached")
+                if not self._budget(ws, why, cfg):
                     continue
-                self.calls.append(now)
                 try:
-                    title, note = ask_claude(ws, wins, notes, cfg)
+                    if why.startswith("check"):
+                        fits, title, note = check_claude(ws, wins, e, notes, cfg)
+                    else:
+                        fits = False
+                        title, note = ask_claude(ws, wins, notes, cfg)
+                        if e and e.get("note") and not force:    # untitled but you wrote a note: keep it
+                            note = e["note"]
                 except Exception as ex:
                     log(f"ws {ws}: claude failed: {ex}")
                     continue
+                checked = {"classes": signature(wins), "fp": fingerprint(wins, cfg), "at": int(now)}
+                if fits:
+                    st["checked"][k] = checked
+                    log(f"ws {ws}: {why} → still fits {e.get('title', '')!r}")
+                    continue
                 with Notes() as n:
                     cur = entry(n.data, ws)
-                    if not n.ok or (cur is not None and not cur.get("auto") and not force):
-                        continue                                  # you titled it while Claude was thinking
-                    n.data[str(ws)] = {"title": title, "note": note, "auto": True,
-                                       "sig": signature(wins), "at": int(time.time())}
+                    if not n.ok or (cur != e and not force):
+                        continue                                  # edited while Claude was thinking
+                    n.data[k] = {"title": title, "note": note, "auto": True}
                     n.dirty = True
-                notes[str(ws)] = {"title": title, "note": note}
+                if not n.ok or (cur != e and not force):
+                    log(f"ws {ws}: changed while asking Claude — left as is")
+                    continue
+                notes[k] = {"title": title, "note": note}
+                st["seen"][k] = {"val": [title, note], "since": now}
+                st["checked"][k] = checked
                 done += 1
-                log(f"ws {ws}: {why} → {title!r} / {note!r}")
+                was = f" (was {e.get('title', '')!r} / {e.get('note', '')!r})" if has_text(e) else ""
+                log(f"ws {ws}: {why} → {title!r} / {note!r}{was}")
                 if ws == focus:   # show the new label right away on the workspace you are looking at
                     subprocess.run(["qs", "-c", "apothecary", "ipc", "call", "workspace", "reveal", str(ws)],
                                    env=HENV, capture_output=True, timeout=5)
+            save_state(st)
             return done
 
 
@@ -269,11 +399,48 @@ class Labeller:
 WATCH = {"openwindow", "closewindow", "movewindow", "movewindowv2", "createworkspace", "destroyworkspace"}
 
 
+def single_instance():
+    """one watcher at a time: take over from an older one (e.g. orphaned by a shell crash)"""
+    CACHE.mkdir(parents=True, exist_ok=True)
+    f = open(PID_FILE, "a+")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        f.seek(0)
+        old = f.read().strip()
+        if old.isdigit():
+            log(f"another watcher (pid {old}) is running; replacing it")
+            try:
+                os.kill(int(old), signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+        fcntl.flock(f, fcntl.LOCK_EX)
+    f.seek(0); f.truncate(); f.write(str(os.getpid())); f.flush()
+    return f                                                     # keep it open = keep the lock
+
+
+def die_with_parent():
+    try:                                                         # PR_SET_PDEATHSIG: exit when the shell dies
+        import ctypes
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(1, signal.SIGTERM)
+    except Exception:
+        pass
+    if os.getppid() == 1:
+        log("parent already gone; exiting")
+        raise SystemExit(0)
+
+
+TICK = 60          # seconds: empty-reset timers and title-drift checks need no window event
+
+
 def daemon():
+    die_with_parent()
+    _lock = single_instance()                                    # noqa: F841 (held for the process lifetime)
     lab = Labeller()
     log(f"daemon start (socket {SOCK2})")
     timer = None
     first_pending = None      # debounce, but never wait more than 3 × settle while windows keep changing
+    last_event = 0.0
 
     def schedule():
         nonlocal timer, first_pending
@@ -296,6 +463,18 @@ def daemon():
         except Exception as ex:
             log(f"pass failed: {ex}")
 
+    def ticker():
+        while True:
+            time.sleep(TICK)
+            if first_pending is not None:
+                continue                                         # an event pass is already on its way
+            try:
+                if time.time() - last_event >= float(settings()["settle"]):
+                    lab.run_pass()
+            except Exception as ex:
+                log(f"tick failed: {ex}")
+
+    threading.Thread(target=ticker, daemon=True).start()
     schedule()                                                     # first look after the settle delay
     while True:
         try:
@@ -309,6 +488,7 @@ def daemon():
                 buf += chunk
                 *lines, buf = buf.split(b"\n")
                 if any(l.split(b">>", 1)[0].decode(errors="ignore") in WATCH for l in lines):
+                    last_event = time.time()
                     schedule()
         except Exception as ex:
             log(f"event socket: {ex}; retrying in 5 s")
@@ -321,8 +501,8 @@ def main(argv):
         only = nums[0] if nums else None
         if only is not None and not 1 <= only <= 10:
             raise SystemExit("workspace must be 1–10")
-        n = Labeller().run_pass(only=only, force="--force" in argv)
-        print(f"labelled {n} workspace(s) — see {LOG}" if n else f"nothing needed a label (log: {LOG})")
+        n = Labeller().run_pass(only=only, force="--force" in argv, eager=True)
+        print(f"(re)labelled {n} workspace(s) — see {LOG}" if n else f"nothing needed a new label (log: {LOG})")
         return
     daemon()
 

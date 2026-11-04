@@ -77,7 +77,8 @@ if you turn it on, written by Claude (`· AUTO`).
 - **Workspace titles**: give each of the ten desks a title and a one-line note (`apothecary ws 3 "Coding" "…"`); a
   paper card with the numeral seal floats in for ~2.6 s whenever you switch there, and the bar shows the title on
   hover. Optional **Claude auto-labelling** (`apothecary ws auto on`): desks with windows but no title get one from
-  Claude (Haiku, through your logged-in Claude Code plan); titles you set are never overwritten.
+  Claude (Haiku, through your logged-in Claude Code plan), titles that no longer match their windows are rewritten,
+  and desks left empty for 10 min are reset; `apothecary ws <n> --pin` protects one.
 - **Desktop widgets** as framed cards with lacquer title bars: weather (Open-Meteo), music (MPRIS + album art),
   calendar, system info, cava, quote of the day, herb/poison of the day, a *brewing medicine* focus timer.
   Drag a card by its title bar to move it.
@@ -116,7 +117,7 @@ SUPER+N network           SUPER+I notifications    SUPER+Esc power        SUPER+
 SUPER+E superfile         SUPER+SHIFT+G game mode  SUPER+ALT+R repair     SUPER+SHIFT+Space float window
 apothecary on|off|status|light|dark|toggle|wallpaper next|prev|random|pick|reload|gamemode|repair
 apothecary ws [list] | ws <1-10> "Title" ["note"] | ws <n> --note "…" | ws <n> --clear | ws edit | ws show [n]
-apothecary ws auto on|off|status|now [n]|clear|log      # Claude labels desks that need it
+apothecary ws auto on|off|status|now [n]|clear|log      # Claude labels, re-checks and resets desks
 apothecary ws help                                      # full reference
 ```
 

@@ -289,20 +289,26 @@ card only appears on workspaces that have a title.
 
 **Let Claude label them.** `apothecary ws auto on` starts a small watcher inside the shell
 (`scripts/ws-autolabel.py`). It listens to Hyprland's window events, waits until things settle (20 s without a
-window opening/closing/moving), and asks Claude for a title and note when a workspace
+window opening/closing/moving), and also looks once a minute. For every workspace that is not pinned it will
 
-- has windows but **no title**, or
-- has a label **Claude wrote earlier** that is older than 10 minutes and whose set of apps has **mostly changed**.
+- **label** it: windows but **no title** → Claude writes a title and note (a note you wrote is kept);
+- **check** it: the windows changed → Claude is shown the current title + note and the windows, and rewrites both if
+  they clearly no longer match — your own titles too. It checks when the set of apps changes, or when only window
+  titles changed and the last check is older than `recheck` (30 min). A title is left alone for `cooldown` (10 min)
+  after it was set, by you or by Claude. Terminals, agent CLIs, file managers and music count as "fits anything";
+- **reset** it: the workspace stayed **empty** for `reset_after` (10 min) → its title and note are removed.
 
-Titles you set yourself are never touched. Claude's labels are marked `(auto)` in `apothecary ws` and
-`WORKSPACE n · AUTO` on the card, and are removed when their workspace becomes empty. Setting a title by hand turns an
-auto label into yours.
+`apothecary ws 3 --pin` protects workspace 3 from all three (`--unpin` undoes it); `manage_manual: false` protects
+every title you set yourself (the old behaviour). Every rewrite and reset is logged with the old text, so nothing is
+lost. Claude's labels are marked `(auto)` in `apothecary ws` and `WORKSPACE n · AUTO` on the card; setting a title by
+hand turns an auto label into yours.
 
 ```
 apothecary ws auto on | off | status
-apothecary ws auto now          # one pass now: label every workspace that needs it
+apothecary ws auto now          # one pass now: label untitled ones, check every titled one (no waiting)
 apothecary ws auto now 3        # relabel workspace 3 now, even if you titled it yourself
 apothecary ws 3 --auto          # drop your title on 3 and let Claude label it
+apothecary ws 3 --pin           # never rewrite or reset 3 (--unpin to undo)
 apothecary ws auto clear        # remove all of Claude's labels (yours stay)
 apothecary ws auto log          # what it did and why (~/.cache/apothecary/ws-auto.log)
 ```
@@ -314,11 +320,14 @@ Tune it under `config.json → "workspace_auto"`:
 
 ```json
 "workspace_auto": { "enabled": true, "model": "haiku", "send_titles": true,
-                    "settle": 20, "cooldown": 600, "max_per_hour": 20 }
+                    "settle": 20, "cooldown": 600, "recheck": 1800, "reset_after": 600,
+                    "manage_manual": true, "max_per_hour": 20 }
 ```
 
-`send_titles: false` sends app classes only (more private, vaguer labels); `max_per_hour` caps the calls. The watcher
-lives and dies with the shell, so it only runs while the theme is on.
+`send_titles: false` sends app classes only (more private, vaguer labels, and title-only changes are no longer
+noticed); `reset_after: 0` never resets; `max_per_hour` caps the calls. The empty/check timers live in
+`~/.cache/apothecary/ws-auto-state.json`, so a shell reload does not restart them. The watcher lives and dies with the
+shell (only one runs at a time), so it only runs while the theme is on.
 
 ---
 
@@ -394,7 +403,7 @@ apothecary wallpaper next | prev | random | current | pick | <path>
 apothecary reload            # hyprctl reload + restart the shell
 apothecary gamemode [on|off|toggle]
 apothecary repair
-apothecary ws [list] | ws <1-10> "Title" ["note"] | ws <n> --note "…" | --clear | --auto | ws edit | ws show [n]
+apothecary ws [list] | ws <1-10> "Title" ["note"] | ws <n> --note "…" | --clear | --auto | --pin | --unpin | ws edit | ws show [n]
 apothecary ws auto on | off | status | now [n] | clear | log     # §3.6
 apothecary ws help                                                # full ws reference
 ```

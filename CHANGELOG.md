@@ -2,6 +2,29 @@
 
 Changes to the Apothecary Hyprland theme after the first public version. Newest first.
 
+## 2026-11-04 — Workspace titles: reset empty desks, rewrite stale titles
+
+### Changed
+
+- With auto-labelling on (`apothecary ws auto on`), `scripts/ws-autolabel.py` now looks after **every** workspace
+  title, yours included:
+  - **reset**: a workspace that stays empty for `reset_after` seconds (600) loses its title and note (`0` = never);
+  - **check**: when a titled workspace's apps change (or only its window titles changed and the last check is older
+    than `recheck`, 1800 s), Claude is shown the current title + note and the windows, and both are rewritten if they
+    clearly no longer match. A title is left alone for `cooldown` (600 s) after it was set.
+  - An untitled workspace with a note you wrote gets a title and keeps your note.
+  - Every rewrite/reset is logged with the old text (`apothecary ws auto log`).
+- `apothecary ws auto now` checks every titled workspace immediately (no cooldown/recheck wait).
+- Only one watcher runs at a time (a new one replaces the old) and it exits with the shell — a shell crash used to
+  leave an orphan watcher running next to the new one.
+
+### Added
+
+- `apothecary ws <n> --pin | --unpin`: protect a title + note from rewrites and resets (`(pinned)` in `ws list`);
+  setting a new title keeps the pin.
+- `config.json → workspace_auto`: `recheck`, `reset_after`, `manage_manual` (`false` = keep check/reset off the
+  titles you set yourself, the old behaviour). Timers persist in `~/.cache/apothecary/ws-auto-state.json`.
+
 ## 2026-11-04 — Brew timer: any length, rest time, Minecraft sounds
 
 ### Added
