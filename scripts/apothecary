@@ -450,10 +450,11 @@ Claude auto-labelling (off by default; uses your logged-in Claude Code plan, mod
 
 While it is on, for every workspace that is not pinned:
   label   windows but no title           → Claude writes a title + note (a note you wrote is kept)
-  check   the windows changed            → Claude compares the title + note with the windows and rewrites both
+  check   the windows changed            → Claude compares the title + note with the windows (for terminals: the
+                                           program, folder and Hermes session title) and rewrites both
                                            if they clearly no longer match (yours too). Checked when the apps
                                            change, or when only window titles changed and the last check is older
-                                           than recheck (30 min); a title is left alone for cooldown (10 min) after
+                                           than recheck (10 min); a title is left alone for cooldown (10 min) after
                                            it was set
   reset   empty for reset_after (10 min) → title + note removed (reset_after 0 = never)
 Set manage_manual false to keep check + reset off your own titles. Every rewrite logs the old text.
@@ -487,7 +488,7 @@ cmd_ws_auto() {
                 say "auto-labelling OFF (existing labels stay; 'apothecary ws auto clear' removes Claude's)" ;;
         status) local en; en="$(jq -r '.workspace_auto.enabled // false' "$cfg" 2>/dev/null || echo false)"
                 say "enabled:  $en"
-                say "settings: $(jq -c '{model:"haiku",send_titles:true,settle:20,cooldown:600,recheck:1800,reset_after:600,manage_manual:true,max_per_hour:20} + (.workspace_auto // {}) | del(.enabled)' "$cfg" 2>/dev/null)"
+                say "settings: $(jq -c '{model:"haiku",send_titles:true,settle:20,cooldown:600,recheck:600,reset_after:600,manage_manual:true,max_per_hour:20} + (.workspace_auto // {}) | del(.enabled)' "$cfg" 2>/dev/null)"
                 say "watcher:  $(pgrep -f 'ws-autolabel.py$' >/dev/null && echo running || echo stopped)"
                 [[ -s "$CACHE/ws-auto.log" ]] && { say "last log lines:"; tail -n 5 "$CACHE/ws-auto.log" | sed 's/^/    /'; } ;;
         now)    shift; local n="${1:-}"; [[ -z "$n" ]] || ws_check "$n"

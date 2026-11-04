@@ -10,8 +10,9 @@ Changes to the Apothecary Hyprland theme after the first public version. Newest 
   title, yours included:
   - **reset**: a workspace that stays empty for `reset_after` seconds (600) loses its title and note (`0` = never);
   - **check**: when a titled workspace's apps change (or only its window titles changed and the last check is older
-    than `recheck`, 1800 s), Claude is shown the current title + note and the windows, and both are rewritten if they
-    clearly no longer match. A title is left alone for `cooldown` (600 s) after it was set.
+    than `recheck`, 600 s), Claude is shown the current title + note and the windows, and both are rewritten if they
+    no longer match. For terminals it also sends what runs inside them (program, folder, and the Hermes session title),
+    since their window title is usually just `hermes` or `zsh`. A title is left alone for `cooldown` (600 s) after it was set.
   - An untitled workspace with a note you wrote gets a title and keeps your note.
   - Every rewrite/reset is logged with the old text (`apothecary ws auto log`).
 - `apothecary ws auto now` checks every titled workspace immediately (no cooldown/recheck wait).

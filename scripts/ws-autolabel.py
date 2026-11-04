@@ -17,7 +17,7 @@ With manage_manual false, titles you set yourself are skipped by check and reset
 Labels it writes are stored in ~/.config/apothecary/workspaces.json with "auto": true.
 
 config.json → "workspace_auto": { "enabled": false, "model": "haiku", "send_titles": true, "settle": 20,
-                                   "cooldown": 600, "recheck": 1800, "reset_after": 600,
+                                   "cooldown": 600, "recheck": 600, "reset_after": 600,
                                    "manage_manual": true, "max_per_hour": 20 }
 Window classes (and titles unless send_titles is false) are sent to Claude. Calls count against your plan:
 ANTHROPIC_API_KEY is removed from the child environment so the CLI uses the logged-in subscription.
@@ -63,15 +63,16 @@ SYSTEM = ("You name virtual desktop workspaces for a CS student's Linux desktop.
           "the workspace is FOR (the activity or project), not a list of apps. " + STYLE)
 CHECK_SYSTEM = ("You keep the titles of virtual desktop workspaces on a CS student's Linux desktop accurate. You get "
                 "a workspace's current title and note and the windows open on it now. Decide whether the title and "
-                "note still describe what the workspace is used for. Be lenient: terminals, coding-agent CLIs "
-                "(hermes, claude), file managers, music or video players and a browser on an unrelated tab are "
-                "generic and fit almost any activity; a title the user wrote may name a project the windows only "
-                "hint at. Answer fits=false only when the windows clearly show a different activity. If it fits, "
-                "return fits=true with the current title and note unchanged. If not, return fits=false and a new "
-                "title and note for what the windows show. " + STYLE)
+                "note still describe what the workspace is used for NOW. Evidence: window titles, and for terminals "
+                "the program running, its folder and a coding-agent session title (a Hermes session title says "
+                "exactly what that terminal is working on). A bare terminal with no details and a music or video "
+                "tab are neutral. Return fits=false when the evidence points to a different activity than the "
+                "title or note, or when nothing on the workspace supports them any more. If it fits, return "
+                "fits=true with the current title and note unchanged. If not, return fits=false and a new title "
+                "and note for what the windows show. " + STYLE)
 
 DEFAULTS = {"enabled": False, "model": "haiku", "send_titles": True, "settle": 20, "cooldown": 600,
-            "recheck": 1800, "reset_after": 600, "manage_manual": True, "max_per_hour": 20}
+            "recheck": 600, "reset_after": 600, "manage_manual": True, "max_per_hour": 20}
 
 
 def log(msg):
@@ -181,13 +182,121 @@ def hyprctl_json(what):
     return json.loads(out or "[]")
 
 
+# ------------------------------------------------------------------------------------------- what terminals run
+# A terminal's window title is often just "hermes" or "zsh". Look at its process tree instead: the programs
+# started from its shell, their working directory, and for Hermes the session title from ~/.hermes/state.db.
+TERMINALS = {"kitty", "foot", "alacritty", "wezterm", "org.wezfurlong.wezterm", "com.mitchellh.ghostty", "ghostty",
+             "konsole", "org.gnome.console", "gnome-terminal-server", "xterm", "st"}
+SHELLS = {"zsh", "bash", "fish", "sh", "dash", "nu", "kitten", "login", "sudo", "tmux: client"}
+HERMES_DB = HOME / ".hermes" / "state.db"
+
+
+def _procs():
+    """→ {pid: (ppid, comm, start_epoch)}"""
+    try:
+        btime = next(int(l.split()[1]) for l in open("/proc/stat") if l.startswith("btime"))
+    except Exception:
+        btime = 0
+    hz = os.sysconf("SC_CLK_TCK")
+    out = {}
+    for d in os.listdir("/proc"):
+        if not d.isdigit():
+            continue
+        try:
+            raw = open(f"/proc/{d}/stat").read()
+        except OSError:
+            continue
+        comm = raw[raw.index("(") + 1:raw.rindex(")")]
+        f = raw[raw.rindex(")") + 2:].split()
+        out[int(d)] = (int(f[1]), comm, btime + int(f[19]) / hz)
+    return out
+
+
+def _cmdline(pid):
+    try:
+        return open(f"/proc/{pid}/cmdline", "rb").read().replace(b"\0", b" ").decode(errors="ignore")
+    except OSError:
+        return ""
+
+
+def _cwd(pid):
+    try:
+        c = os.readlink(f"/proc/{pid}/cwd")
+    except OSError:
+        return ""
+    return "~" + c[len(str(HOME)):] if c.startswith(str(HOME)) else c
+
+
+def _is_hermes(pid, comm):
+    return comm == "hermes" or "hermes_cli" in _cmdline(pid)[:4000]
+
+
+def programs_in(pid, procs, kids):
+    """the commands started from the terminal's shell(s): [(pid, name, start)]"""
+    found, todo = [], [(pid, False)]
+    while todo:
+        p, under_shell = todo.pop()
+        for c in kids.get(p, []):
+            comm = procs[c][1]
+            if comm in SHELLS or comm.startswith("kitty"):
+                todo.append((c, True))
+            elif under_shell:
+                found.append((c, "hermes" if _is_hermes(c, comm) else comm, procs[c][2]))
+    return found
+
+
+def hermes_sessions(hermes_procs):
+    """{pid: (title, ended)} — the latest top-level local session started by each running Hermes CLI.
+    Hermes does not record the pid, so a session belongs to the newest Hermes CLI started before it."""
+    if not hermes_procs or not HERMES_DB.exists():
+        return {}
+    import sqlite3
+    starts = sorted((st, pid) for pid, st in hermes_procs.items())
+    try:
+        db = sqlite3.connect(f"file:{HERMES_DB}?mode=ro", uri=True, timeout=2)
+        rows = db.execute("SELECT title, started_at, ended_at FROM sessions WHERE started_at >= ? "
+                          "AND source = 'local' AND parent_session_id IS NULL AND COALESCE(hidden, 0) = 0 "
+                          "ORDER BY started_at", (starts[0][0] - 5,)).fetchall()
+        db.close()
+    except Exception as ex:
+        log(f"hermes sessions: {ex}")
+        return {}
+    out = {}
+    for title, started, ended in rows:
+        owner = None
+        for st, pid in starts:
+            if st - 5 <= started:
+                owner = pid
+        if owner is not None and title:
+            out[owner] = (title, ended is not None)
+    return out
+
+
 def windows_by_ws():
+    clients = hyprctl_json("clients")
+    procs = _procs()
+    kids = {}
+    for pid, (ppid, _, _) in procs.items():
+        kids.setdefault(ppid, []).append(pid)
+    progs = {}
+    for c in clients:
+        if (c.get("class") or "").lower() in TERMINALS and c.get("pid", -1) in procs:
+            progs[c["pid"]] = programs_in(c["pid"], procs, kids)
+    sessions = hermes_sessions({p: st for lst in progs.values() for p, name, st in lst if name == "hermes"})
     by = {}
-    for c in hyprctl_json("clients"):
+    for c in clients:
         wid = (c.get("workspace") or {}).get("id", -1)
-        if 1 <= wid <= 10 and c.get("mapped", True):
-            by.setdefault(wid, []).append({"class": c.get("class") or c.get("initialClass") or "?",
-                                           "title": (c.get("title") or "")[:80]})
+        if not (1 <= wid <= 10 and c.get("mapped", True)):
+            continue
+        details = []
+        for p, name, _ in progs.get(c.get("pid"), [])[:3]:
+            d = f"running {name} in {_cwd(p) or '?'}"
+            if p in sessions:
+                title, ended = sessions[p]
+                d += f'; Hermes session {"(finished) " if ended else ""}"{title[:70]}"'
+            details.append(d)
+        by.setdefault(wid, []).append({"class": c.get("class") or c.get("initialClass") or "?",
+                                       "title": (c.get("title") or "")[:80], "detail": "; ".join(details)})
     return by
 
 
@@ -206,7 +315,7 @@ def fingerprint(wins, cfg):
     """what a check looked at: classes, plus window titles when they are sent"""
     if not cfg["send_titles"]:
         return signature(wins)
-    return sorted(f'{w["class"].lower()}|{w["title"]}' for w in wins)
+    return sorted(f'{w["class"].lower()}|{w["title"]}|{w.get("detail", "")}' for w in wins)
 
 
 def jaccard(a, b):
@@ -229,7 +338,8 @@ def _others(ws, notes):
 
 
 def _windows(wins, cfg):
-    return "\n".join(f'- {w["class"]}' + (f' — "{w["title"]}"' if cfg["send_titles"] and w["title"] else "")
+    return "\n".join(f'- {w["class"]}' + (f' — "{w["title"]}"' if cfg["send_titles"] and w["title"] else "") +
+                     (f' ({w["detail"]})' if cfg["send_titles"] and w.get("detail") else "")
                      for w in wins)
 
 
@@ -316,7 +426,14 @@ class Labeller:
         return True
 
     def run_pass(self, only=None, force=False, eager=False):
-        with self.lock:
+        # serialise with the daemon / another `--once` (else both ask Claude about the same change)
+        CACHE.mkdir(parents=True, exist_ok=True)
+        with self.lock, open(CACHE / "ws-auto.pass.lock", "a") as pl:
+            fcntl.flock(pl, fcntl.LOCK_EX)
+            return self._run_pass(only, force, eager)
+
+    def _run_pass(self, only, force, eager):
+        if True:
             cfg = settings()
             by = windows_by_ws()
             notes = read_notes()

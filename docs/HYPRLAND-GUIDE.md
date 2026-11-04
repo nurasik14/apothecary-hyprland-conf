@@ -294,8 +294,10 @@ window opening/closing/moving), and also looks once a minute. For every workspac
 - **label** it: windows but **no title** → Claude writes a title and note (a note you wrote is kept);
 - **check** it: the windows changed → Claude is shown the current title + note and the windows, and rewrites both if
   they clearly no longer match — your own titles too. It checks when the set of apps changes, or when only window
-  titles changed and the last check is older than `recheck` (30 min). A title is left alone for `cooldown` (10 min)
-  after it was set, by you or by Claude. Terminals, agent CLIs, file managers and music count as "fits anything";
+  titles changed and the last check is older than `recheck` (10 min). A title is left alone for `cooldown` (10 min)
+  after it was set, by you or by Claude. A terminal's window title is often just `hermes` or `zsh`, so for terminals it
+  also sends what runs inside (program + folder, and the title of the Hermes session in that terminal, read from
+  `~/.hermes/state.db`); music/video tabs and bare terminals count as neutral;
 - **reset** it: the workspace stayed **empty** for `reset_after` (10 min) → its title and note are removed.
 
 `apothecary ws 3 --pin` protects workspace 3 from all three (`--unpin` undoes it); `manage_manual: false` protects
@@ -320,7 +322,7 @@ Tune it under `config.json → "workspace_auto"`:
 
 ```json
 "workspace_auto": { "enabled": true, "model": "haiku", "send_titles": true,
-                    "settle": 20, "cooldown": 600, "recheck": 1800, "reset_after": 600,
+                    "settle": 20, "cooldown": 600, "recheck": 600, "reset_after": 600,
                     "manage_manual": true, "max_per_hour": 20 }
 ```
 
