@@ -40,7 +40,12 @@ if [[ "$MODE" == off ]]; then
   link "$(off_target "$CFG/fastfetch/config.jsonc" "$APPS/fastfetch/apothecary-ascii.jsonc")" "$STATE_DIR/fastfetch/current.jsonc"
 else
   link "$APPS/fastfetch/apothecary-$MODE.jsonc" "$STATE_DIR/fastfetch/current.jsonc"
-  logo="$REPO/assets/art/fastfetch-maomao.png"; [[ "$MODE" == dark && -f "$REPO/assets/art/fastfetch-maomao-dark.png" ]] && logo="$REPO/assets/art/fastfetch-maomao-dark.png"
+  # square logo (shown at 40x18 cells = 360x360 px, no stretch); tall 420x500 art as fallback
+  logo=""
+  for cand in fastfetch-maomao-square fastfetch-maomao; do
+    [[ "$MODE" == dark && -f "$REPO/assets/art/$cand-dark.png" ]] && { logo="$REPO/assets/art/$cand-dark.png"; break; }
+    [[ -f "$REPO/assets/art/$cand.png" ]] && { logo="$REPO/assets/art/$cand.png"; break; }
+  done
   if [[ -f "$logo" ]]; then link "$logo" "$STATE_DIR/fastfetch/logo.png"
   else link "$APPS/fastfetch/apothecary-ascii.jsonc" "$STATE_DIR/fastfetch/current.jsonc"; fi
 fi

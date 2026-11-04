@@ -300,12 +300,18 @@ make_widget_art() {
     magick "$src" -crop 1040x1340+400+20 +repage "$bust"
   fi
 
-  # fastfetch: 420px wide bust on paper / lacquer, ink-wash feather on all sides
+  # fastfetch: bust on paper / lacquer, ink-wash feather on all sides.
+  #   tall   420x500 -> fastfetch-maomao{,-dark}.png         (SysInfo widget card)
+  #   square 480x480 -> fastfetch-maomao-square{,-dark}.png  (fastfetch logo; shown at
+  #   40x18 kitty cells = 360x360 px with 9x20 px cells, so it is not stretched)
+  local shape
+  for shape in tall square; do
   for mode in light dark; do
-    local out="$ART/fastfetch-maomao.png"; [ "$mode" = dark ] && out="$ART/fastfetch-maomao-dark.png"
+    local fw=420 fh=500 suffix=""
+    [ "$shape" = square ] && { fw=480; fh=480; suffix="-square"; }
+    local out="$ART/fastfetch-maomao${suffix}.png"; [ "$mode" = dark ] && out="$ART/fastfetch-maomao${suffix}-dark.png"
     fresh "$out" || continue
     log "widget: $(basename "$out")"
-    local fw=420 fh=500
     magick "$bust" -filter Lanczos -resize "${fw}x${fh}^" -gravity north -extent "${fw}x${fh}" \
       -unsharp 0x0.5+0.3+0.02 "$WORK/ff-art.png"
     tint_art "$mode" "$WORK/ff-art.png" "$WORK/ff-tint.png"
@@ -315,6 +321,7 @@ make_widget_art() {
     magick "$WORK/ff-tint.png" "$WORK/ff-mask.png" -alpha off -compose CopyOpacity -composite "$WORK/ff-rgba.png"
     magick "$WORK/paper-$mode.png" -gravity center -crop "${fw}x${fh}+0+0" +repage \
       "$WORK/ff-rgba.png" -gravity center -compose over -composite -strip "$out"
+  done
   done
 
   # launcher: 600px tall bust with a soft ink-wash alpha edge (works on any ground)

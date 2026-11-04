@@ -30,7 +30,9 @@ install_kitty() {
 install_fastfetch() {
   local art="$REPO/assets/art"
   link "$APPS/fastfetch/apothecary-$MODE.jsonc" "$STATE_DIR/fastfetch/current.jsonc"
-  if [[ -f "$art/fastfetch-maomao.png" ]]; then
+  if [[ -f "$art/fastfetch-maomao-square.png" ]]; then
+    link "$art/fastfetch-maomao-square.png" "$STATE_DIR/fastfetch/logo.png"   # square: no stretch at 40x18 cells
+  elif [[ -f "$art/fastfetch-maomao.png" ]]; then
     link "$art/fastfetch-maomao.png" "$STATE_DIR/fastfetch/logo.png"
   else
     warn "assets/art/fastfetch-maomao.png missing (run assets/fetch-art.sh) — using ascii fallback"
