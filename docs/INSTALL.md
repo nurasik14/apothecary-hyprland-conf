@@ -19,7 +19,7 @@ What it does (idempotent, every edit is marked `# apothecary`, reversed exactly 
 | hook | appends `source = ~/.config/hypr/apothecary.conf # apothecary` as the last line of `~/.config/hypr/hyprland.conf` (a copy is kept as `hyprland.conf.pre-apothecary`) and links `~/.config/hypr/apothecary.conf → hypr/apothecary.conf` |
 | shell | `~/.config/quickshell/apothecary → quickshell/` |
 | CLI | `~/.local/bin/apothecary → scripts/apothecary` |
-| state | `~/.config/apothecary/`: `mode` (`light`), `active.conf → hypr/off.conf`, `colors.conf`, `hyprlock-vars.conf`, `kitty-colors.conf` (→ `tokens/out/<mode>/…`), `lock.png` (→ `assets/art/lock-<mode>.png`), `repo → <repo root>`, `config.json` (`{"sounds": true, "weather": {}, "brew": {"work": 25, "break": 5}}`) |
+| state | `~/.config/apothecary/`: `mode` (`light`), `active.conf → hypr/off.conf`, `colors.conf`, `hyprlock-vars.conf`, `kitty-colors.conf` (→ `tokens/out/<mode>/…`), `lock.png` (→ `assets/art/lock-<mode>.png`), `repo → <repo root>`, `config.json` (`{"sounds": true, "weather": {}, "brew": {"work": 25, "break": 5, "sound": "minecraft"}}`); `install.sh` also runs `scripts/fetch-minecraft-sounds.sh` (brew timer sounds, gitignored) |
 | apps | runs `apps/install.sh` if the app-theming layer is present |
 | reload | `hyprctl reload` — with the theme off this changes nothing visible |
 

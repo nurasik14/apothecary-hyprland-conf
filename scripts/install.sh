@@ -69,7 +69,9 @@ elif [[ ! -e "$STATE/lock.png" ]]; then
     first="$(find "$REPO/assets/wallpapers/$MODE" -maxdepth 1 -type f 2>/dev/null | LC_ALL=C sort | head -n1 || true)"
     [[ -n "$first" ]] && ln -sfn "$first" "$STATE/lock.png"
 fi
-[[ -s "$STATE/config.json" ]] || printf '{"sounds": true, "weather": {}, "brew": {"work": 25, "break": 5}}\n' >"$STATE/config.json"
+[[ -s "$STATE/config.json" ]] || printf '{"sounds": true, "weather": {}, "brew": {"work": 25, "break": 5, "sound": "minecraft"}}\n' >"$STATE/config.json"
+# Minecraft brewing sounds for the brew timer (© Mojang, gitignored; the timer falls back to brew-done.wav without them)
+"$REPO/scripts/fetch-minecraft-sounds.sh" || say "brew timer: Minecraft sounds not downloaded (offline?) — using the classic sound"
 say "$STATE: mode=$MODE, active.conf -> $(readlink "$STATE/active.conf"), colors.conf/hyprlock-vars.conf/kitty-colors.conf/lock.png/repo linked, config.json"
 
 # e) hyprlock is swapped only by `apothecary on` (see scripts/apothecary). Nothing to do here.

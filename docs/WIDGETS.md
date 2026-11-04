@@ -80,12 +80,19 @@ Right/bottom slots are re-based on other resolutions: `x = width − (1920 − x
   (EB Garamond italic, 猫 seal). Plate (`assets/pd/plates/*.webp`, black-ink RGBA mask) tinted with
   `Theme.text` via `MultiEffect.colorization`; the image column collapses when `plate` is null or the file is
   missing. Left click → next herb, right click → previous.
-- **Brew timer** — work 25 / break 5 (config `brew.work` / `brew.break`), states `idle | working | breaking |
-  paused`; ink ring (`QtQuick.Shapes` arc, vermilion for work, celadon for rest) around `mm:ss`, label
-  煎药 · BREWING/RESTING, Start/Resume/Pause (primary when idle) + Reset. On finish: `pw-play
-  assets/sounds/brew-done.wav` (skipped when `config.json {"sounds": false}`) + `notify-send -a Apothecary
-  "Medicine is ready" "25 minutes brewed. Rest for 5."`; a finished work phase rolls into the break, a
-  finished break returns to idle ("Back to the workbench").
+- **Brew timer** — brew 25 / rest 5 by default; both lengths are any duration (`25`, `50m`, `1h30`, `90s`, `1:30`,
+  rest `0` = none; grammar in `Services/duration.js`, mirrored by `brew_parse` in `scripts/apothecary`), saved in
+  config `brew.work` / `brew.break`. States `idle | working | breaking | paused`; ink ring (`QtQuick.Shapes` arc,
+  vermilion for work, celadon for rest) around `mm:ss` (`h:mm:ss` from an hour up), label 煎药 · BREWING/RESTING,
+  Start/Resume/Pause (primary when idle) + reset + pencil (set) icons.
+  Setting: click the clock / pencil, or `SUPER+SHIFT+B` → the brew dialog (`quickshell/Brew/BrewDialog.qml`, layer
+  `apothecary-brew`: two fields + preset chips, ⏎ save + start, ↑/↓ ±1 min); while idle, scroll on the clock =
+  brew ±1 min and on the "brew · rest" line = rest ±1 min (Shift ±5). Every save runs `apothecary brew set`.
+  On finish: a sound (`brew.sound`: `minecraft` = brewing-stand `brew1/2.ogg` when the brew is done and `drink.ogg`
+  when the rest is over, fetched by `scripts/fetch-minecraft-sounds.sh` into the gitignored
+  `assets/sounds/minecraft/`; `classic` or missing files = `assets/sounds/brew-done.wav`; nothing when
+  `config.json {"sounds": false}`) + `notify-send -a Apothecary "Medicine is ready" "50 min brewed. Rest for 10 min."`;
+  a finished brew rolls into the rest (or back to idle when rest is 0), a finished rest returns to idle.
 
 ## IPC
 
@@ -94,7 +101,8 @@ qs -c apothecary ipc call widgets toggle | reveal | hide      # persisted in ~/.
 #   (NB `widgets show` is swallowed by the qs CLI — `show` collides with `qs ipc show` — so the alias is `reveal`)
 qs -c apothecary ipc call widgets demo on|off                 # mocked music card when no player
 qs -c apothecary ipc call widgets status                      # "visible (demo)"
-qs -c apothecary ipc call brew start 25 | toggle | reset | status
+qs -c apothecary ipc call brew start 50m | startWith 50m 10m | toggle | pause | reset | add 5m | open | sound brew|rest | status | settings
+# CLI: apothecary brew help   ·   preview on a headless output: quickshell/Brew/preview/shell.qml
 ```
 (`-p <preview dir>` instead of `-c apothecary` when talking to the preview instance.)
 
@@ -154,7 +162,7 @@ platform theme, not ours). The layer itself produces no QML warnings.
   reference card; `current.precipitation` (mm) is exposed on the service but not shown.
 - Herb names in Traditional Chinese (e.g. 烏頭) fall back glyph-by-glyph from Ma Shan Zheng to Noto Sans CJK —
   acceptable for a decorative title; the Latin name carries the meaning.
-- Brew: IPC `start` takes whole minutes (min 1). Nothing is left running after QA (`brew reset` verified).
+- Brew: IPC `start` takes any duration (bare number = minutes). Nothing is left running after QA (`brew reset` verified).
 
 ## Per-card switches, dragging, transparency (added after user feedback)
 

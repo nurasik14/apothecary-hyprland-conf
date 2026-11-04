@@ -2,6 +2,28 @@
 
 Changes to the Apothecary Hyprland theme after the first public version. Newest first.
 
+## 2026-11-04 — Brew timer: any length, rest time, Minecraft sounds
+
+### Added
+
+- **Brew dialog** (`quickshell/Brew/BrewDialog.qml`, layer `apothecary-brew`): set the brew and rest lengths to
+  any duration (`25`, `50m`, `1h30`, `90s`, `1:30`; rest `0` = no rest) with preset chips. Open it with
+  `SUPER+SHIFT+B`, by clicking the card's clock or pencil, or with `apothecary brew set`. ⏎ saves and starts.
+- Scroll on the idle card's clock (brew) or its "brew · rest" line (rest) to change them by 1 min (Shift: 5 min).
+- `apothecary brew …` CLI: `set <brew> [rest]`, `work`, `rest`, `start [brew] [rest]` (one-off), `toggle`, `pause`,
+  `reset`, `add <dur>`, `sound minecraft|classic|fetch|play`, `help`. New IPC functions: `startWith`, `pause`,
+  `add`, `open`, `sound`, `settings`.
+- **Minecraft brewing sounds**: the brewing stand's brew sound when a brew finishes, the potion-drink sound when
+  the rest ends (`config.json → brew.sound`, default `minecraft`). They are © Mojang, so they are not in the repo:
+  `scripts/fetch-minecraft-sounds.sh` (also run by `install.sh`) downloads them from Mojang's asset server into the
+  gitignored `assets/sounds/minecraft/`. Without them the timer plays the old `brew-done.wav`.
+
+### Changed
+
+- `SUPER+SHIFT+B` opens the brew dialog. It used to start a fixed 25-minute brew.
+- `config.json → brew.work / brew.break` accept fractional minutes or duration strings (`"90s"`); `brew.break`
+  may be `0`. Clocks of an hour or more show `h:mm:ss`. Notifications state the real lengths.
+
 ## 2026-11-03 — Brightness on hybrid-GPU laptops
 
 ### Fixed

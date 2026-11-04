@@ -14,3 +14,6 @@ qa/current-desktop.png
 
 # personal VibeWise learning notes (local only)
 .vibe-wise/
+
+# Minecraft brewing sounds (© Mojang) — scripts/fetch-minecraft-sounds.sh downloads them
+assets/sounds/minecraft/

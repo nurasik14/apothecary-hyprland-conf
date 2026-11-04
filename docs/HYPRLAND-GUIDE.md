@@ -42,7 +42,7 @@ Notation: `SUPER` is the Windows key. `SUPER+SHIFT+Space` means hold SUPER and S
 | `SUPER+W` | Wallpaper picker (`SUPER+SHIFT+W` next, `CTRL+ALT+W` random) |
 | `SUPER+T` | Light ↔ dark (Apothecary 薬屋 ↔ Inner Palace 后宫) |
 | `SUPER+G` | Desktop widgets on/off |
-| `SUPER+B` | Brew timer start/pause (`SUPER+SHIFT+B` = 25 min) |
+| `SUPER+B` | Brew timer start/pause (`SUPER+SHIFT+B` = set brew / rest time) |
 | `SUPER+Escape` | Power menu (five hanging scrolls) |
 | `CTRL+ALT+L` | Lock screen |
 | `SUPER+ALT+R` | **Repair** the theme if something broke it |
@@ -339,7 +339,7 @@ lives and dies with the shell, so it only runs while the theme is on.
 | `SUPER+T` | Light ↔ dark mode |
 | `SUPER+G` | Desktop **widgets** on/off |
 | `SUPER+B` | **Brew timer** start / pause |
-| `SUPER+SHIFT+B` | Brew timer: start 25 minutes now |
+| `SUPER+SHIFT+B` | Brew timer: set the brew / rest time (dialog) |
 | `SUPER+SHIFT+G` | **Game mode** on/off |
 | `SUPER+ALT+R` | **Repair** the shell |
 | `SUPER+E` | superfile (`spf`) in a floating kitty sheet |
@@ -412,7 +412,7 @@ apothecary ws help                                                # full ws refe
 | `osd` | `volume` `brightness` |
 | `workspace` | `reveal <1-10>` `current` `hide` `title <n>` (the workspace card, §3.6) |
 | `widgets` | `toggle` `reveal` `hide` `layout` `demo on\|off` `status` (use `reveal`, because `show` collides with `qs ipc show`) |
-| `brew` | `toggle` `start <minutes>` `reset` `status` |
+| `brew` | `toggle` `start <dur>` `startWith <brew> <rest>` `pause` `reset` `add <dur>` `open` `sound brew\|rest` `status` `settings` |
 | `shell` | `closeAll` `status` |
 
 `qs -c apothecary ipc show` lists everything the running shell exposes.
@@ -618,7 +618,7 @@ mode, and a 時辰 (Chinese hour) label updates every minute. Type your password
 1. `SUPER+Return` for a terminal, `SUPER+Space` for anything else.
 2. Desk 1 for work, 2 for the browser, 3 and 5 for master-layout coding, 9 for music. Move things with `SUPER+SHIFT+n`.
 3. Put a notes app or terminal in the drawer: `SUPER+SHIFT+U`, then call it with `SUPER+U`.
-4. `SUPER+SHIFT+B` to brew a 25-minute focus session, `SUPER+SHIFT+I` to silence notes while it runs.
+4. `SUPER+SHIFT+B` to set the brew / rest lengths and start a focus session, `SUPER+SHIFT+I` to silence notes while it runs.
 5. `SUPER+T` at sunset, `SUPER+CTRL+N` for warm night light.
 6. Before gaming: `SUPER+SHIFT+G`. After: `SUPER+SHIFT+G` again.
 

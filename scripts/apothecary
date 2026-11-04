@@ -3,6 +3,7 @@
 #
 #   apothecary on | off | status | toggle | light | dark | reload | session-start
 #   apothecary wallpaper next | prev | current | pick | <path>
+#   apothecary ws … | brew …   (workspace titles, brew timer; `apothecary brew help`)
 #   apothecary help
 #
 # Installed as ~/.local/bin/apothecary -> <repo>/scripts/apothecary by scripts/install.sh.
@@ -386,6 +387,9 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
                   let Claude (your plan, haiku) title workspaces that have windows but no title, and retitle
                   its own labels when the apps change a lot; your titles are never touched.  ws <n> --auto
                   hands one back to Claude
+  brew [status]   the 煎 brew timer: brew set <brew> [rest] (any length: 50, 1h30, 90s; rest 0 = none) ·
+                  brew set = dialog (SUPER+SHIFT+B) · brew start [brew] [rest] · toggle · reset · add <dur>
+                  (apothecary brew help = full reference)
   repair          re-stop waybar/mako, restart the shell, re-apply the wallpaper (after JaKooLit scripts)
   session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
 
@@ -535,9 +539,158 @@ cmd_ws() {
     esac
 }
 
+# ---------------------------------------------------------------------------------------------- brew timer
+# config.json "brew": {"work": <minutes or "90s"/"1h30m">, "break": <same, 0 = no rest>} — read live by the shell
+# (Widgets/Services/ApoConfig.qml + BrewTimer.qml).  Duration grammar = quickshell/Widgets/Services/duration.js.
+BREW_MAX=86400
+
+brew_parse() {                  # brew_parse "<text>" -> whole seconds on stdout; status 1 if unreadable
+    local s="${1,,}" total=0 last=0 num unit mult
+    s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"
+    [[ -n "$s" ]] || return 1
+    case "$s" in off|none|no) echo 0; return 0 ;; esac
+    if [[ "$s" =~ ^([0-9]+):([0-9]{1,2})(:([0-9]{1,2}))?$ ]]; then
+        if [[ -n "${BASH_REMATCH[4]}" ]]; then
+            echo $(( 10#${BASH_REMATCH[1]} * 3600 + 10#${BASH_REMATCH[2]} * 60 + 10#${BASH_REMATCH[4]} ))
+        else
+            echo $(( 10#${BASH_REMATCH[1]} * 60 + 10#${BASH_REMATCH[2]} ))
+        fi
+        return 0
+    fi
+    s="${s//[[:space:]]/}"
+    while [[ -n "$s" ]]; do
+        [[ "$s" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)([a-z]*) ]] || return 1
+        num="${BASH_REMATCH[1]}"; unit="${BASH_REMATCH[3]}"; s="${s:${#BASH_REMATCH[0]}}"
+        case "$unit" in
+            h|hr|hrs|hour|hours)            mult=3600 ;;
+            m|min|mins|minute|minutes)      mult=60 ;;
+            s|sec|secs|second|seconds)      mult=1 ;;
+            "")  if (( last == 0 || last == 3600 )); then mult=60; else mult=1; fi ;;   # 25 = min, 1h30 = 1 h 30 min
+            *)   return 1 ;;
+        esac
+        (( last == 0 || mult < last )) || return 1
+        total="$(awk -v t="$total" -v n="$num" -v m="$mult" 'BEGIN { printf "%.6f", t + n * m }')"
+        last=$mult
+    done
+    awk -v t="$total" 'BEGIN { printf "%d\n", int(t + 0.5) }'
+}
+brew_short() {                  # 5400 -> 1h30m · 90 -> 1m30s · 0 -> 0m
+    local t=$1 out=""
+    (( t >= 3600 )) && out+="$(( t / 3600 ))h"
+    (( t % 3600 / 60 )) && out+="$(( t % 3600 / 60 ))m"
+    (( t % 60 )) && out+="$(( t % 60 ))s"
+    printf '%s\n' "${out:-0m}"
+}
+brew_saved() {                  # brew_saved work|break -> seconds currently saved (defaults 25 min / 5 min)
+    local key="$1" def=25 v s
+    [[ "$key" == break ]] && def=5
+    v="$(json_get ".brew.\"$key\"" "$def")"
+    s="$(brew_parse "$v" 2>/dev/null)" || s=$(( def * 60 ))
+    printf '%s\n' "$s"
+}
+brew_need() {                   # brew_need work|rest "<text>" -> seconds, or die with a hint
+    local what="$1" s
+    s="$(brew_parse "$2")" || die "can't read $what time '$2' — try 25, 50m, 1h30, 90s or 1:30"
+    if [[ "$what" == brew ]]; then (( s >= 1 && s <= BREW_MAX )) || die "brew time must be between 1 s and 24 h"
+    else (( s <= BREW_MAX )) || die "rest time must be 24 h or less"; fi
+    printf '%s\n' "$s"
+}
+brew_ipc() { $QS_CMD ipc call brew "$@" 2>/dev/null || die "the shell is not running (apothecary on)"; }
+
+cmd_brew_help() {
+    cat <<EOF
+apothecary brew — the 煎 Brew timer (focus timer on the desktop, SUPER+B start/pause)
+
+  brew | brew status              saved brew / rest lengths and what the timer is doing
+  brew set                        open the brew dialog in the shell (also SUPER+SHIFT+B or click the card's clock)
+  brew set <brew> [rest]          save new lengths (use - to keep one: brew set - 10m)
+  brew work <dur>                 save only the brew length
+  brew rest <dur>                 save only the rest length (0 = no rest: the timer stops after the brew)
+  brew start [brew] [rest]        start now; given lengths are for this session only (saved ones unchanged)
+  brew toggle | pause | reset     start/pause/resume · pause · stop
+  brew add <dur>                  add time to the running brew or rest
+  brew sound                      which finish sound is used
+  brew sound minecraft | classic  Minecraft brewing stand (brew done) + potion drink (rest over), or the theme's
+                                  own plucks; minecraft downloads the files first if needed
+  brew sound fetch [--force]      (re)download the Minecraft sounds from Mojang's asset server (gitignored)
+  brew sound play [brew|rest]     preview a finish sound
+  brew help                       this help
+
+Durations: 25 (minutes) · 2.5 · 50m · 90s · 1h · 1h30 · 1h30m15s · 1:30 (m:ss) · 1:05:00 (h:mm:ss); up to 24 h.
+On the card (while idle) scroll on the clock = brew ±1 min, on the "brew · rest" line = rest ±1 min (Shift ±5).
+
+Settings: $STATE/config.json → "brew": {"work": 25, "break": 5, "sound": "minecraft"}
+          (work/break in minutes, or a string like "90s" / "1h30m"; sound minecraft | classic)
+
+Examples:
+  apothecary brew set 50 10       50-minute brews, 10-minute rests
+  apothecary brew rest 0          no rest after a brew
+  apothecary brew start 1h30 15m  one long session, back to the saved lengths afterwards
+EOF
+}
+
+cmd_brew() {
+    local quiet=0
+    case "${1:-status}" in
+        status|"")
+            local w r
+            w="$(brew_saved work)"; r="$(brew_saved break)"
+            say "brew $(brew_short "$w") · $( (( r > 0 )) && echo "rest $(brew_short "$r")" || echo "no rest")   (saved in $STATE/config.json)"
+            if qs_running; then say "timer: $($QS_CMD ipc call brew status 2>/dev/null || echo '?')"; else say "timer: shell not running"; fi ;;
+        set)
+            shift
+            [[ "${1:-}" == --quiet ]] && { quiet=1; shift; }
+            if (( $# == 0 )); then brew_ipc open >/dev/null; return 0; fi
+            (( $# <= 2 )) || { warn "too many arguments: brew set $*"; cmd_brew_help >&2; exit 1; }
+            local w="${1:--}" r="${2:--}" ws="" rs="" filter=".brew = (.brew // {})"
+            [[ "$w" == - ]] || ws="$(brew_need brew "$w")"
+            [[ "$r" == - ]] || rs="$(brew_need rest "$r")"
+            [[ -n "$ws$rs" ]] || die "nothing to set (brew set <brew> [rest])"
+            # whole minutes are stored as plain numbers (25), anything else as a seconds string ("90s")
+            [[ -n "$ws" ]] && filter+=" | .brew.work = $( (( ws % 60 == 0 )) && echo $(( ws / 60 )) || echo "\"${ws}s\"")"
+            [[ -n "$rs" ]] && filter+=" | .brew.break = $( (( rs % 60 == 0 )) && echo $(( rs / 60 )) || echo "\"${rs}s\"")"
+            have jq || die "jq is required for 'apothecary brew set'"
+            ( flock 9; ws_cfg "$filter" ) 9>>"$STATE/config.json.lock"
+            (( quiet )) || {
+                w="$(brew_saved work)"; r="$(brew_saved break)"
+                say "saved: brew $(brew_short "$w") · $( (( r > 0 )) && echo "rest $(brew_short "$r")" || echo "no rest")"
+            } ;;
+        work|brew) shift; [[ -n "${1:-}" ]] || die "usage: apothecary brew work <dur>"; cmd_brew set "$1" - ;;
+        rest|break) shift; [[ -n "${1:-}" ]] || die "usage: apothecary brew rest <dur>"; cmd_brew set - "$1" ;;
+        start)
+            shift
+            local ws rs
+            if (( $# == 0 )); then brew_ipc start "" >/dev/null
+            elif (( $# == 1 )); then ws="$(brew_need brew "$1")"; brew_ipc start "${ws}s" >/dev/null
+            else ws="$(brew_need brew "$1")"; rs="$(brew_need rest "$2")"; brew_ipc startWith "${ws}s" "${rs}s" >/dev/null; fi
+            say "$($QS_CMD ipc call brew status 2>/dev/null)" ;;
+        toggle|pause|reset)
+            brew_ipc "$1" >/dev/null; say "$($QS_CMD ipc call brew status 2>/dev/null)" ;;
+        add)
+            shift; [[ -n "${1:-}" ]] || die "usage: apothecary brew add <dur>"
+            local as; as="$(brew_need brew "$1")"; brew_ipc add "${as}s" >/dev/null; say "$($QS_CMD ipc call brew status 2>/dev/null)" ;;
+        open) brew_ipc open >/dev/null ;;
+        sound)
+            shift
+            case "${1:-}" in
+                "")  say "sound: $(json_get '.brew.sound' minecraft)   minecraft files: $( [[ -s "$REPO/assets/sounds/minecraft/brew1.ogg" ]] && echo present || echo "missing (apothecary brew sound fetch)")" ;;
+                minecraft|classic)
+                     ( flock 9; ws_cfg --arg s "$1" '.brew = ((.brew // {}) + {sound: $s})' ) 9>>"$STATE/config.json.lock"
+                     [[ "$1" == minecraft && ! -s "$REPO/assets/sounds/minecraft/brew1.ogg" ]] && "$REPO/scripts/fetch-minecraft-sounds.sh"
+                     say "brew sound: $1" ;;
+                fetch) "$REPO/scripts/fetch-minecraft-sounds.sh" "${@:2}" ;;
+                play|test) brew_ipc sound "${2:-brew}" >/dev/null ;;
+                *)   warn "unknown: brew sound $1"; cmd_brew_help >&2; exit 1 ;;
+            esac ;;
+        help|-h|--help) cmd_brew_help ;;
+        *) warn "unknown: brew $1"; cmd_brew_help >&2; exit 1 ;;
+    esac
+}
+
 case "${1:-help}" in
     on)            cmd_on ;;
     ws|workspace)  shift; cmd_ws "$@" ;;
+    brew)          shift; cmd_brew "$@" ;;
     off)           cmd_off ;;
     status)        cmd_status ;;
     light|dark)    cmd_mode "$1" ;;

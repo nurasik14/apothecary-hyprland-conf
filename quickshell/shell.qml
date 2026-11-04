@@ -11,10 +11,11 @@ import qs.Power
 import qs.Wallpapers
 import qs.Osd
 import qs.Widgets
+import qs.Brew
 
 /*  Apothecary Hyprland — Quickshell entry.  `qs -c apothecary`
  *  Surfaces (layer namespaces): apothecary-bar · apothecary-launcher · apothecary-notif · apothecary-notifcenter ·
- *  apothecary-network · apothecary-power · apothecary-wallpapers · apothecary-osd · apothecary-wscard · apothecary-widgets (qs-widgets)
+ *  apothecary-network · apothecary-power · apothecary-wallpapers · apothecary-osd · apothecary-wscard · apothecary-brew · apothecary-widgets (qs-widgets)
  *  IPC: qs -c apothecary ipc call <target> <fn>   — see docs/QUICKSHELL.md
  */
 ShellRoot {
@@ -30,6 +31,7 @@ ShellRoot {
     Osd { id: osd }
     WorkspaceCard { id: wsCard }
     DesktopWidgets {}
+    BrewDialog {}
 
     // ------------------------------------------------------------ IPC (BRIEF §4)
     IpcHandler {

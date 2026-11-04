@@ -2,9 +2,13 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "duration.js" as Dur
 
 /*  ApoConfig — read-only view of ~/.config/apothecary/config.json for the widget layer.
- *    sounds (bool, default true) · reduced_motion (bool) · weather{lat,lon,name} · brew{work,break} (minutes)
+ *    sounds (bool, default true) · reduced_motion (bool) · weather{lat,lon,name}
+ *    brew{work,break}: a number = minutes (25, 2.5) or a duration string ("90s", "1h30m", "1:30"); see duration.js.
+ *    break may be 0 (no rest).  brew.sound: "minecraft" (default; files from scripts/fetch-minecraft-sounds.sh,
+ *    falls back to classic when missing) | "classic" (assets/sounds/brew-done.wav).  Written by `apothecary brew set|work|rest`.
  *  Paths: stateDir (~/.config/apothecary), cacheDir (~/.cache/apothecary), scriptDir (this directory).
  */
 Singleton {
@@ -38,8 +42,17 @@ Singleton {
 
     readonly property bool sounds: config.sounds !== false
     readonly property bool reducedMotion: config.reduced_motion === true
-    readonly property int brewWorkMinutes: Math.max(1, parseInt(get("brew.work", 25)) || 25)
-    readonly property int brewBreakMinutes: Math.max(1, parseInt(get("brew.break", 5)) || 5)
+    readonly property int brewWorkSeconds: {
+        const s = Dur.parse(get("brew.work", 25));
+        return s >= 1 ? Math.min(s, 86400) : 1500;
+    }
+    readonly property int brewBreakSeconds: {
+        const s = Dur.parse(get("brew.break", 5));
+        return s >= 0 ? Math.min(s, 86400) : 300;
+    }
+    readonly property string brewSound: String(get("brew.sound", "minecraft"))   // minecraft | classic
+    readonly property int brewWorkMinutes: Math.round(brewWorkSeconds / 60)     // legacy (whole minutes)
+    readonly property int brewBreakMinutes: Math.round(brewBreakSeconds / 60)
 
     // one-shot helpers used by the services
     Process { id: mkdirs; command: ["mkdir", "-p", root.stateDir, root.cacheDir]; running: true }

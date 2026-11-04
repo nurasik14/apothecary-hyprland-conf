@@ -25,7 +25,7 @@ Active only while the theme is on (`apothecary on`); `hypr/keybinds.conf` is sou
 | `SUPER + SHIFT + I` | Do not disturb toggle | `qs -c apothecary ipc call notifications dnd` | `layoutmsg togglesplit` (moved to `SUPER+CTRL+I`) |
 | `SUPER + E` | superfile in kitty | `kitty --class spf -e spf` | `LaunchFileManager.sh` (thunar) |
 | `SUPER + B` | Brew timer start / pause | `qs -c apothecary ipc call brew toggle` | `xdg-open https://` (browser, moved to `SUPER+Z`) |
-| `SUPER + SHIFT + B` | Brew timer, 25 minutes | `qs -c apothecary ipc call brew start 25` | `RainbowBorders-low-cpu.sh` (dropped: rainbow borders are off-theme) |
+| `SUPER + SHIFT + B` | Brew timer: set brew / rest time (dialog) | `qs -c apothecary ipc call brew open` | `RainbowBorders-low-cpu.sh` (dropped: rainbow borders are off-theme) |
 | `XF86AudioRaise/Lower/Mute` | Volume OSD (in addition to JaKooLit's `Volume.sh`) | `qs -c apothecary ipc call osd volume` | — (additional bind, both fire) |
 | `XF86MonBrightnessUp/Down` | Brightness OSD (in addition to `Brightness.sh`) | `qs -c apothecary ipc call osd brightness` | — (additional bind, both fire) |
 
