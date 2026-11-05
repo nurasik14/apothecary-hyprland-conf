@@ -94,7 +94,10 @@ Scope {
                         role: "clock_bar"
                         width: 44
                         horizontalAlignment: Text.AlignRight
-                        text: root.kind === "brightness" && !AudioService.brightnessAvailable ? "—" : Math.round(win.value * 100) + "%"
+                        // the ink bar stops at full; the number keeps counting past 100 % and turns red
+                        readonly property int pct: Math.round((root.kind === "brightness" ? AudioService.brightness : AudioService.volume) * 100)
+                        text: root.kind === "brightness" && !AudioService.brightnessAvailable ? "—" : pct + "%"
+                        color: root.kind === "volume" && !AudioService.muted && pct > 100 ? Theme.error : Theme.text
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
