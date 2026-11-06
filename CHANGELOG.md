@@ -2,6 +2,29 @@
 
 Changes to the Apothecary Hyprland theme after the first public version. Newest first.
 
+## 2026-11-06 — Projects (工程): a to-do card, one list for every theme
+
+### Added
+
+- **Projects card** (9th desktop widget, 400×244 at x 340 y 812): *在制 In progress* and *已成 Built* sections, paper-note rows
+  with ink checkboxes, the vermilion seal **成** stamped on built projects (seal cue on completion), hover ✕ with a 5 s Undo,
+  double-click to edit, scrolling, empty state; Add / edit dialog (`apothecary-projects` layer, keyboard focus like the brew
+  dialog). Light and dark. Listed in the bar's Desk widgets menu.
+- `SUPER+SHIFT+P` opens the dialog; `apothecary projects [list|add|done|undone|toggle|rm|rename|clear|open|edit]`;
+  IPC target `projects` (`open add toggle done undone remove rm edit undo list status`).
+- **`scripts/hypr-projects`** (installed as `~/.local/bin/hypr-projects`): the standalone CLI that owns every write (flock,
+  in place, refuses to overwrite invalid JSON), plus `menu` (rofi) and `summary` (notify-send).
+- The list lives in **`~/.local/share/hypr-projects/projects.json`**, shared with Overworld and the stock desktop: both shells
+  watch it, so a tick in one theme shows in the other. The first run migrates Overworld's old
+  `~/.config/overworld/projects.json` (kept as `.bak`).
+- **Stock desktop** (both themes off): `hypr/off.conf` binds `SUPER+SHIFT+P` to `hypr-projects menu --if-stock`, a rofi menu
+  (☐ in progress / ☑ built rows; Enter toggles, "+ Add project…", "✕ Remove…", Esc closes). Does nothing while a theme is on.
+
+### Changed
+
+- `ShellState` knows a `projects` modal; `scripts/install.sh` / `uninstall.sh` link / unlink `hypr-projects` (uninstall hands the
+  link to Overworld if it is installed; the list itself is never removed).
+
 ## 2026-11-04 — Workspace titles: reset empty desks, rewrite stale titles
 
 ### Changed

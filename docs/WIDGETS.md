@@ -5,7 +5,7 @@
 > (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
 > The desktop widgets exist only while the theme is on. `SUPER+G` hides or shows them without turning the theme off. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
 
-The desktop widget layer: eight framed paper cards on the wallpaper (layer `bottom`, click-through where
+The desktop widget layer: nine framed paper cards on the wallpaper (layer `bottom`, click-through where
 empty), toggled with `widgets toggle` (SUPER+G). Every card is a `WidgetCard` (= `Common/PaperPanel` +
 show/hide animation) placed at the exact 1920×1080 slot of `docs/DESIGN.md` §7.
 
@@ -25,12 +25,14 @@ quickshell/Widgets/
                             40 ms stagger per `index` (reading order), reduced_motion → 0 ms / no rise
   Weather/WeatherCard.qml   Music/MusicCard.qml   Calendar/CalendarCard.qml   SysInfo/SysInfoCard.qml
   Cava/CavaCard.qml         Quote/QuoteCard.qml   HerbOfDay/HerbCard.qml      BrewTimer/BrewTimerCard.qml
+  Projects/                 ProjectsCard.qml  ProjectRow.qml  InkCheck.qml  ProjectsForm.qml  ProjectsDialog.qml (layer apothecary-projects)
   Services/                 pragma Singleton services (auto-registered; no qmldir):
     ApoConfig.qml           ~/.config/apothecary/config.json view: sounds, reduced_motion, weather{lat,lon,name},
                             brew{work,break}; stateDir / cacheDir / scriptDir
     WidgetsState.qml        visible (persisted) + demo flag + IpcHandler "widgets"
     WeatherService.qml      + weather-fetch.py        MusicService.qml (MPRIS)      SysInfoService.qml + sysinfo.py
     QuoteService.qml        HerbService.qml           BrewTimer.qml (IpcHandler "brew")   CavaService.qml
+    ProjectsService.qml     the shared to-do list (IpcHandler "projects"), see "Projects" below
   preview/                  standalone harness: shell.qml + symlinks Common → ../../Common, Widgets → ..
     shot.sh                 restart preview + screenshot helper (see "Running the preview")
 ```
@@ -45,6 +47,7 @@ quickshell/Widgets/
 | Cava | 1536 652 360 180 | 声 · CAVA · 印 | `cava -p ~/.cache/apothecary/cava.conf` |
 | Herb of the day | 770 812 380 220 (centred: w/2−190) | 药 · HERB OF THE DAY · 药 | `quotes/herbs.json` |
 | Quote | 1436 848 460 120 | 言 · QUOTE · 印 | `quotes/quotes.json` |
+| Projects | 340 812 400 244 | 工程 · PROJECTS · 印 | `~/.local/share/hypr-projects/projects.json` (shared) |
 
 Right/bottom slots are re-based on other resolutions: `x = width − (1920 − x)`, `y = height − (1080 − y)`.
 
@@ -94,6 +97,33 @@ Right/bottom slots are re-based on other resolutions: `x = width − (1920 − x
   `config.json {"sounds": false}`) + `notify-send -a Apothecary "Medicine is ready" "50 min brewed. Rest for 10 min."`;
   a finished brew rolls into the rest (or back to idle when rest is 0), a finished rest returns to idle.
 
+## Projects — 工程 (the 9th card, added with `projects-everywhere`)
+
+A to-do list: what you have **built** and what is **in progress**. The list is **one file shared by every theme and the stock
+desktop** — `~/.local/share/hypr-projects/projects.json` (`{"items": [{"id", "title", "note"?, "status": "progress"|"built",
+"created", "built_at"?}]}`) — so a tick in Overworld shows here after a theme switch, and `hypr-projects` edits appear live.
+- **Card** (400×244 in the free slot under the art zone, between Brew and Herb): sections **在制 In progress** (file order) and
+  **已成 Built** (newest first; the latest 5, then "+N more"; click the header to fold). Each row is a small paper note: ink
+  checkbox (a brush tick that draws itself in), the title (elided; the note and the built date under it), and on built rows a
+  **vermilion seal 成** stamped at the right (presses down with a small overshoot, no motion with `reduced_motion`); the title is
+  struck through. Hover a row: its frame turns jade and a **✕** appears — remove has no confirm, an **Undo** slip shows for 5 s.
+  Double-click a title = edit, **Add** (in the header) = new project. Empty: a big vermilion 工 and an "Add a project" button.
+  Becoming built plays the seal cue (`assets/sounds/seal.wav`, honours `sounds: false`). Scrolls when the list is long.
+- **Dialog** `quickshell/Widgets/Projects/ProjectsDialog.qml` (layer `apothecary-projects`, `ShellState.projectsOpen`, so it is a
+  modal like the brew dialog, scrim, Exclusive keyboard): Title (autofocus) · Note · "Already built" · Add/Save = Enter · Esc cancels ·
+  Tab next field · editing adds Up / Down (↑/↓ in the title) to reorder inside the section. `SUPER+SHIFT+P`,
+  `apothecary projects open`, or the card's Add / a double-click open it.
+- **Writes**: every change is `scripts/hypr-projects raw <op>` (flock, in place, never `mv`; refuses to overwrite invalid JSON), the
+  same script as `apothecary projects …` and the stock-desktop menu. `ProjectsService` watches the file (no optimistic copy).
+- **CLI**: `apothecary projects [list] | add <title> [--note t] [--built] | done|undone|toggle|rm <n|title> | rename | clear [--yes] |
+  open | edit <n|title>` (`apothecary projects help`); or `hypr-projects …` directly.
+- **Stock desktop** (both themes off): `SUPER+SHIFT+P` → `hypr-projects menu --if-stock`, a rofi menu ("☐ in progress" / "☑ built"
+  rows, Enter toggles, "+ Add project…" asks for a title, "✕ Remove…" deletes, Esc closes); bound in `hypr/off.conf`.
+- Default slot is for 1920×1080 like the other cards (on screens narrower than ~1700 px it overlaps the centred Herb card:
+  drag it by its title bar; saved position wins). Per-card switch: `widgets card projects`, the bar's Desk widgets menu lists it.
+- Tests (offscreen, temp HOME + `HYPR_PROJECTS_FILE`, `sounds: false`): `preview/projects-test.qml` (service, 46 checks),
+  `preview/projects-render.qml` with `APO_RENDER_WHAT=act|form|card|undo|dialog|edit` (card handlers, the form's own functions, PNG renders).
+
 ## IPC
 
 ```
@@ -102,6 +132,7 @@ qs -c apothecary ipc call widgets toggle | reveal | hide      # persisted in ~/.
 qs -c apothecary ipc call widgets demo on|off                 # mocked music card when no player
 qs -c apothecary ipc call widgets status                      # "visible (demo)"
 qs -c apothecary ipc call brew start 50m | startWith 50m 10m | toggle | pause | reset | add 5m | open | sound brew|rest | status | settings
+qs -c apothecary ipc call projects open | add <title> | toggle|done|undone|remove|rm|edit <n|id|title> | undo | list | status
 # CLI: apothecary brew help   ·   preview on a headless output: quickshell/Brew/preview/shell.qml
 ```
 (`-p <preview dir>` instead of `-c apothecary` when talking to the preview instance.)
@@ -169,7 +200,7 @@ platform theme, not ours). The layer itself produces no QML warnings.
 - **Bar chip 󰕮** (right side, before the sun/moon): click → *Desk widgets* menu: `全 All widgets` (= SUPER+G) and one
   seal checkbox per card, plus *Reset positions*. Middle-click the chip = all on/off. Click outside or Esc closes.
   State: `~/.config/apothecary/widgets-hidden.json` (list of switched-off card ids).
-  IPC: `qs -c apothecary ipc call widgets card <weather|music|calendar|sysinfo|cava|quote|herb|brew>` toggles one,
+  IPC: `qs -c apothecary ipc call widgets card <weather|music|calendar|sysinfo|cava|quote|herb|brew|projects>` toggles one,
   `widgets cards` lists them, `widgets menu` opens the menu.
 - **Dragging:** grab a card's lacquer title bar. While a drag is active the widget layer takes pointer input on the
   whole screen (`WidgetsState.dragging` adds a full-screen region to the input mask), so a fast flick can no longer

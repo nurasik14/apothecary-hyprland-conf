@@ -26,6 +26,7 @@ Active only while the theme is on (`apothecary on`); `hypr/keybinds.conf` is sou
 | `SUPER + E` | superfile in kitty | `kitty --class spf -e spf` | `LaunchFileManager.sh` (thunar) |
 | `SUPER + B` | Brew timer start / pause | `qs -c apothecary ipc call brew toggle` | `xdg-open https://` (browser, moved to `SUPER+Z`) |
 | `SUPER + SHIFT + B` | Brew timer: set brew / rest time (dialog) | `qs -c apothecary ipc call brew open` | `RainbowBorders-low-cpu.sh` (dropped: rainbow borders are off-theme) |
+| `SUPER + SHIFT + P` | Projects: add a project (dialog) | `qs -c apothecary ipc call projects open` | — (free; `unbind`ed first so the stock-desktop menu bind from `hypr/off.conf` does not also fire) |
 | `XF86AudioRaise/Lower/Mute` | Volume OSD (in addition to JaKooLit's `Volume.sh`) | `qs -c apothecary ipc call osd volume` | — (additional bind, both fire) |
 | `XF86MonBrightnessUp/Down` | Brightness OSD (in addition to `Brightness.sh`) | `qs -c apothecary ipc call osd brightness` | — (additional bind, both fire) |
 
@@ -71,3 +72,10 @@ Active only while the theme is on (`apothecary on`); `hypr/keybinds.conf` is sou
 
 Widgets: drag a card by its **title bar** to move it (saved in `~/.config/apothecary/widget-positions.json`);
 double-click a title bar to send that card back; `qs -c apothecary ipc call widgets layout` resets all.
+
+## While the theme is off (stock desktop)
+
+`hypr/off.conf` is sourced only while Apothecary is off and carries one bind: `SUPER + SHIFT + P` → `~/.local/bin/hypr-projects menu
+--if-stock` (a rofi menu of the shared Projects list). `--if-stock` makes it a no-op while Apothecary **or** Overworld is on (each
+theme binds the same key to its own dialog), and the menu holds a lock, so Overworld's identical line (both `off.conf` files load when
+both themes are off) never opens two windows. `SUPER+SHIFT+P` is free on JaKooLit (checked in `hyprctl binds -j`; `SUPER+P` is pseudotile).

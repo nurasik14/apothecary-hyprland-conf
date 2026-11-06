@@ -3,7 +3,7 @@
 #
 #   apothecary on | off | status | toggle | light | dark | reload | session-start
 #   apothecary wallpaper next | prev | current | pick | <path>
-#   apothecary ws … | brew …   (workspace titles, brew timer; `apothecary brew help`)
+#   apothecary ws … | brew … | projects …   (workspace titles, brew timer, projects to-do; `apothecary brew help`)
 #   apothecary help
 #
 # Installed as ~/.local/bin/apothecary -> <repo>/scripts/apothecary by scripts/install.sh.
@@ -390,6 +390,8 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
   brew [status]   the 煎 brew timer: brew set <brew> [rest] (any length: 50, 1h30, 90s; rest 0 = none) ·
                   brew set = dialog (SUPER+SHIFT+B) · brew start [brew] [rest] · toggle · reset · add <dur>
                   (apothecary brew help = full reference)
+  projects [list] the 工程 Projects card: add <title> [--note t] [--built] · done|undone|toggle|rm <n|title> · rename · clear ·
+                  open (dialog, SUPER+SHIFT+P) · edit <n|title>   (apothecary projects help; one list shared with Overworld)
   repair          re-stop waybar/mako, restart the shell, re-apply the wallpaper (after JaKooLit scripts)
   session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
 
@@ -706,10 +708,56 @@ cmd_brew() {
     esac
 }
 
+# ---------------------------------------------------------------------------------------------- projects (工程 to-do card)
+# The list is shared by every theme and the stock desktop: ~/.local/share/hypr-projects/projects.json, owned by scripts/hypr-projects
+# (flock + in-place writes, numbering, title matching).  `apothecary projects …` is that CLI plus the verbs that need the shell
+# (open / edit).  The Projects card (quickshell/Widgets/Projects) watches the file, so CLI edits show up live.
+cmd_projects_help() {
+    cat <<'EOF'
+apothecary projects — the 工程 Projects card: what you have built, what is in progress (no shell needed, except open / edit)
+
+  projects | projects list            numbered list: in progress first, then built (newest first)
+  projects add <title…> [--note <text>] [--built]
+                                      add a project (it starts in progress; --built adds one that is already done)
+  projects done <n|title>             tick it: built (the card stamps the seal 成)
+  projects undone <n|title>           back to in progress
+  projects toggle <n|title>           flip it
+  projects rm <n|title>               remove it (no undo from here; the card has one for 5 s)
+  projects rename <n|title> <new…>    new title
+  projects clear [--yes]              remove every built project (asks y/N on a terminal)
+  projects open                       open the add dialog in the shell (SUPER+SHIFT+P, or Add on the card)
+  projects edit <n|title>             open the edit dialog (title, note, built, order)
+
+<n|title> is the number from `projects list`, or the start of a title (any part of it if that is unique).
+The list is shared with Overworld and the stock desktop: ~/.local/share/hypr-projects/projects.json, also `hypr-projects`
+(with a rofi menu on SUPER+SHIFT+P while no theme is on).
+Examples:
+  apothecary projects add "Hyprland rice" --note "waybar part left"
+  apothecary projects done 2
+  apothecary projects rm todo
+EOF
+}
+cmd_projects() {
+    local hp="$REPO/scripts/hypr-projects"
+    [[ -x "$hp" ]] || die "scripts/hypr-projects is missing"
+    local sub="${1:-list}"; shift || true
+    case "$sub" in
+        list|ls|add|done|built|check|undone|uncheck|toggle|rm|remove|del|delete|rename|clear)
+            exec "$hp" "$sub" "$@" ;;
+        undo)     exec "$hp" undone "$@" ;;
+        open|new) $QS_CMD ipc call projects open >/dev/null 2>&1 || die "the shell is not running (apothecary on)" ;;
+        edit)     [[ -n "${1:-}" ]] || die "usage: apothecary projects edit <n|title>"
+                  $QS_CMD ipc call projects edit "$*" >/dev/null 2>&1 || die "the shell is not running (apothecary on)" ;;
+        help|-h|--help) cmd_projects_help ;;
+        *) warn "unknown: projects $sub"; cmd_projects_help >&2; exit 1 ;;
+    esac
+}
+
 case "${1:-help}" in
     on)            cmd_on ;;
     ws|workspace)  shift; cmd_ws "$@" ;;
     brew)          shift; cmd_brew "$@" ;;
+    projects|project) shift; cmd_projects "$@" ;;
     off)           cmd_off ;;
     status)        cmd_status ;;
     light|dark)    cmd_mode "$1" ;;

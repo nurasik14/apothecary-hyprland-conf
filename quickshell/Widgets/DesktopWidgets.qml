@@ -11,10 +11,11 @@ import qs.Widgets.Quote
 import qs.Widgets.HerbOfDay
 import qs.Widgets.BrewTimer
 import qs.Widgets.Cava
+import qs.Widgets.Projects
 
 /*  DesktopWidgets — the desktop widget layer (one PanelWindow per screen, layer `bottom`).
  *
- *  Cards sit at the exact 1920×1080 slots of docs/DESIGN.md §7 (absolute screen coordinates; the window
+ *  Cards sit at the exact 1920×1080 slots of docs/DESIGN.md §7 (Projects, the 9th card, in the free slot at x 340 y 812) (absolute screen coordinates; the window
  *  covers the whole output with exclusionMode Ignore, so y = 60 is "bar 36 + margin 24").  Right/bottom
  *  anchored slots are re-based on other resolutions (x = width − (1920 − x)).
  *  Click-through: `mask` = union of the visible card rectangles, so the desktop receives everything else.
@@ -54,6 +55,7 @@ Variants {
             Region { item: win.shown && herb.shown ? herb : null }
             Region { item: win.shown && brew.shown ? brew : null }
             Region { item: win.shown && cava.shown ? cava : null }
+            Region { item: win.shown && projects.shown ? projects : null }
         }
 
         // reading order = stagger order (left column top→bottom, then right column, then the bottom row)
@@ -65,5 +67,7 @@ Variants {
         CavaCard     { id: cava;     index: 5; cardId: "cava";     defaultX: win.rx(1536); defaultY: win.by(652) }
         HerbCard     { id: herb;     index: 6; cardId: "herb";     defaultX: Math.round(win.width / 2 - 190); defaultY: win.by(812) }
         QuoteCard    { id: quote;    index: 7; cardId: "quote";    defaultX: win.rx(1436); defaultY: win.by(848) }
+        // 9th card: the free slot under the art zone between Brew (ends x 324) and Herb (starts x 780): x 340–740, y 812–1056
+        ProjectsCard { id: projects; index: 8; cardId: "projects"; defaultX: 340; defaultY: win.by(812) }
     }
 }
