@@ -11,7 +11,7 @@ import Quickshell.Io
  *    opacity   card fill alpha (config.json → {"widgets":{"opacity":0.72}}), default 0.72
  *    dragging  true while a card is dragged (the layer then takes input everywhere so a fast drag can't escape)
  *  IPC:  qs -c apothecary ipc call widgets toggle | show | hide | demo on|off | status | layout (reset positions)
- *        | menu | card <id> (toggle one: weather music calendar sysinfo cava quote herb brew projects) | cards (list)
+ *        | menu | card <id> (toggle one: weather music calendar sysinfo cava quote herb brew projects notes) | cards (list)
  */
 Singleton {
     id: root
@@ -82,7 +82,8 @@ Singleton {
         { id: "quote",    cjk: "言",   name: "Quote" },
         { id: "herb",     cjk: "药",   name: "Herb of the day" },
         { id: "brew",     cjk: "煎",   name: "Brew timer" },
-        { id: "projects", cjk: "工程", name: "Projects" }
+        { id: "projects", cjk: "工程", name: "Projects" },
+        { id: "notes",    cjk: "札记", name: "Notes" }
     ]
     property var hiddenCards: []
     property bool dragging: false

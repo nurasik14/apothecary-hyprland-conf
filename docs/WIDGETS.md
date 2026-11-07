@@ -5,7 +5,7 @@
 > (the stock desktop returns in about 5 s, no logout); `apothecary status` shows which state is active.
 > The desktop widgets exist only while the theme is on. `SUPER+G` hides or shows them without turning the theme off. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
 
-The desktop widget layer: nine framed paper cards on the wallpaper (layer `bottom`, click-through where
+The desktop widget layer: ten framed paper cards on the wallpaper (layer `bottom`, click-through where
 empty), toggled with `widgets toggle` (SUPER+G). Every card is a `WidgetCard` (= `Common/PaperPanel` +
 show/hide animation) placed at the exact 1920×1080 slot of `docs/DESIGN.md` §7.
 
@@ -26,6 +26,7 @@ quickshell/Widgets/
   Weather/WeatherCard.qml   Music/MusicCard.qml   Calendar/CalendarCard.qml   SysInfo/SysInfoCard.qml
   Cava/CavaCard.qml         Quote/QuoteCard.qml   HerbOfDay/HerbCard.qml      BrewTimer/BrewTimerCard.qml
   Projects/                 ProjectsCard.qml  ProjectRow.qml  InkCheck.qml  ProjectsForm.qml  ProjectsDialog.qml (layer apothecary-projects)
+  Notes/                    NotesCard.qml  WashiSlip.qml  PaperScraps.qml  NotesForm.qml  NotesEditor.qml (layer apothecary-notes)  NotesPlace.js
   Services/                 pragma Singleton services (auto-registered; no qmldir):
     ApoConfig.qml           ~/.config/apothecary/config.json view: sounds, reduced_motion, weather{lat,lon,name},
                             brew{work,break}; stateDir / cacheDir / scriptDir
@@ -33,6 +34,7 @@ quickshell/Widgets/
     WeatherService.qml      + weather-fetch.py        MusicService.qml (MPRIS)      SysInfoService.qml + sysinfo.py
     QuoteService.qml        HerbService.qml           BrewTimer.qml (IpcHandler "brew")   CavaService.qml
     ProjectsService.qml     the shared to-do list (IpcHandler "projects"), see "Projects" below
+    NotesService.qml        the shared pad of notes (IpcHandler "notes"), see "Notes" below
   preview/                  standalone harness: shell.qml + symlinks Common → ../../Common, Widgets → ..
     shot.sh                 restart preview + screenshot helper (see "Running the preview")
 ```
@@ -48,6 +50,7 @@ quickshell/Widgets/
 | Herb of the day | 770 812 380 220 (centred: w/2−190) | 药 · HERB OF THE DAY · 药 | `quotes/herbs.json` |
 | Quote | 1436 848 460 120 | 言 · QUOTE · 印 | `quotes/quotes.json` |
 | Projects | 340 812 400 244 | 工程 · PROJECTS · 印 | `~/.local/share/hypr-projects/projects.json` (shared) |
+| Notes | 1166 812 254 244 | 札记 · NOTES · 记 | `~/.local/share/hypr-notes/notes.json` (shared) |
 
 Right/bottom slots are re-based on other resolutions: `x = width − (1920 − x)`, `y = height − (1080 − y)`.
 
@@ -124,6 +127,30 @@ desktop** — `~/.local/share/hypr-projects/projects.json` (`{"items": [{"id", "
 - Tests (offscreen, temp HOME + `HYPR_PROJECTS_FILE`, `sounds: false`): `preview/projects-test.qml` (service, 46 checks),
   `preview/projects-render.qml` with `APO_RENDER_WHAT=act|form|card|undo|dialog|edit` (card handlers, the form's own functions, PNG renders).
 
+## Notes — 札记 (the 10th card)
+
+Maomao's scribbled memos: a pad for **raw, stray thoughts**, no titles, no structure. The pad is **one file shared by every theme and the stock desktop**,
+`~/.local/share/hypr-notes/notes.json` (`{"sheets": [{"id", "text", "created", "updated", "color"?}], "current": id}`), so a note written in Overworld is on this slip after a
+theme switch, and `hypr-notes` edits appear live.
+- **Label**: 札记 (*zhájì*, jottings; 札 is also the slip they were written on), in ZCOOL XiaoWei; the seal is 记 ("to record"). Both glyphs are in ZCOOL XiaoWei and Ma Shan Zheng
+  (`tokens/check-glyphs.sh "札记"`). The Japanese 覚書 is **not** in either font, so it is not used.
+- **Card** (254×244 in the free slot between Herb and Quote): a slip of herb-paper with deckled edges, faint kozo fibres and a few flecks of dried leaf (`WashiSlip`, drawn on a
+  Canvas, always the same for a sheet), stitched down with a silver needle trailing a vermilion thread, and up to two slips of the pad askew behind it. Night is the same paper
+  by lamplight, with dark ink. The note is in LXGW WenKai (the theme's body face: Latin, Cyrillic and Kazakh, CJK), never the brush font, and fades out when it is too long. Footer: `◀ 2/5 ▶` (also the mouse wheel
+  over the card; no wrap-around), when it was last touched, `+`. Hover: **✕** tears the slip off, with torn scraps, the seal cue (`assets/sounds/seal.wav`, honours `sounds: false`,
+  the nearest thing to paper this theme has) and an **Undo** slip for 5 s. Empty: a vermilion 札 and "Click to scribble a thought". The paper's alpha follows `widgets.opacity` with a floor of 0.9, so ink stays readable.
+- **Editor** `Notes/NotesEditor.qml` (layer `apothecary-notes`, `ShellState.notesOpen`, so it is one modal among the others: scrim, Exclusive keyboard): the same slip, larger, right
+  over the card (kept on the screen; hidden card = the middle of the screen). Enter = new line. Esc, Ctrl+Enter, a click outside or the **记 Done** seal = save and close. Ctrl+N = a new sheet,
+  Ctrl+PgUp/PgDn = flip. Saved 700 ms after the last keystroke. An empty sheet is dropped (with Undo if it had text). If the same sheet changes
+  from outside while you edit, typed text wins; with nothing typed the slip shows the new text. Ctrl+N/A/C/V/X/Z also work on a Cyrillic layout, by physical key.
+- **Writes**: every change is `scripts/hypr-notes raw <op>` (flock, in place, refuses to overwrite an invalid file; refused text goes to `<file>.rescue` with one notification).
+  `apothecary reload|off` first call IPC `notes flush`, because a signal gives the editor no chance to save.
+- **CLI**: `apothecary notes [list] | add <text…> | show [n] | rm <n> | edit [n] | clear [--yes] | open | new | next | prev | undo` (`apothecary notes help`); or `hypr-notes …` directly.
+- **Stock desktop** (both themes off): `SUPER+ALT+N` → `hypr-notes menu --if-stock`, a rofi menu ("+ New note…", Enter on a sheet shows it, "✕ Remove…", Esc closes); bound in `hypr/off.conf`.
+- The default slot is for 1920×1080 and up (on screens narrower than 1888 px it overlaps Herb: drag it by its title bar; a saved position wins). Per-card switch: `widgets card notes`; the bar's Desk widgets menu lists it.
+- Tests (offscreen, temp HOME + `HYPR_NOTES_FILE`, `sounds: false`): `preview/notes-test.qml` (service), `preview/notes-render.qml` with `APO_RENDER_WHAT=act` (real key and mouse events on an offscreen window) or `card|undo|edit` (PNG renders),
+  `tests/notes-quit.test.sh` (typing survives a quit, a reload and flush + SIGTERM), `tests/notes-layout.test.js` (no overlaps, editor placement). The CLI's own suite is `tests/hypr-notes.test.sh` in the Overworld repo; the script is byte-identical in both.
+
 ## IPC
 
 ```
@@ -133,6 +160,7 @@ qs -c apothecary ipc call widgets demo on|off                 # mocked music car
 qs -c apothecary ipc call widgets status                      # "visible (demo)"
 qs -c apothecary ipc call brew start 50m | startWith 50m 10m | toggle | pause | reset | add 5m | open | sound brew|rest | status | settings
 qs -c apothecary ipc call projects open | add <title> | toggle|done|undone|remove|rm|edit <n|id|title> | undo | list | status
+qs -c apothecary ipc call notes open | newSheet | add <text> | next | prev | remove | undo | list | status | flush     # `new` is a reserved word in QML: newSheet
 # CLI: apothecary brew help   ·   preview on a headless output: quickshell/Brew/preview/shell.qml
 ```
 (`-p <preview dir>` instead of `-c apothecary` when talking to the preview instance.)
@@ -155,7 +183,7 @@ node abroad); on this machine the VPN exits in Singapore, so the card shows Kowl
 ## Click-through
 
 The PanelWindow `mask` is a `Region` whose children are `Region { item: <card> }` for every card (null while
-the layer is hidden, which makes the whole layer click-through). Everything outside the eight rectangles
+the layer is hidden, which makes the whole layer click-through). Everything outside the card rectangles
 reaches the desktop; inside, the cards receive hover/click (weather strip hover, music seek, quote/herb click).
 Verified by construction only — no synthetic-input tool (ydotool/wtype) is installed to click through
 programmatically.
@@ -200,7 +228,7 @@ platform theme, not ours). The layer itself produces no QML warnings.
 - **Bar chip 󰕮** (right side, before the sun/moon): click → *Desk widgets* menu: `全 All widgets` (= SUPER+G) and one
   seal checkbox per card, plus *Reset positions*. Middle-click the chip = all on/off. Click outside or Esc closes.
   State: `~/.config/apothecary/widgets-hidden.json` (list of switched-off card ids).
-  IPC: `qs -c apothecary ipc call widgets card <weather|music|calendar|sysinfo|cava|quote|herb|brew|projects>` toggles one,
+  IPC: `qs -c apothecary ipc call widgets card <weather|music|calendar|sysinfo|cava|quote|herb|brew|projects|notes>` toggles one,
   `widgets cards` lists them, `widgets menu` opens the menu.
 - **Dragging:** grab a card's lacquer title bar. While a drag is active the widget layer takes pointer input on the
   whole screen (`WidgetsState.dragging` adds a full-screen region to the input mask), so a fast flick can no longer

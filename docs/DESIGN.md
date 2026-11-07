@@ -331,6 +331,7 @@ subject sits centre/right inside it; nothing but the wallpaper paints there.
 | Cava | 1536 | 652 | 360 | 180 | 声 · CAVA | 印 |
 | Quote | 1436 | 848 | 460 | 120 | 言 · QUOTE | 印 |
 | Projects (added later) | 340 | 812 | 400 | 244 | 工程 · PROJECTS | 印 |
+| Notes (added later) | 1166 | 812 | 254 | 244 | 札记 · NOTES | 记 |
 
 Right edges all align at 1896; left column aligns at 24; Herb is centred under the art zone (970 − 190).
 Bottom margins: Weather/Calendar top 60 = bar 36 + 24. Free space: x 340–484 beside Music (intentional air).

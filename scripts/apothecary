@@ -3,7 +3,7 @@
 #
 #   apothecary on | off | status | toggle | light | dark | reload | session-start
 #   apothecary wallpaper next | prev | current | pick | <path>
-#   apothecary ws … | brew … | projects …   (workspace titles, brew timer, projects to-do; `apothecary brew help`)
+#   apothecary ws … | brew … | projects … | notes …   (workspace titles, brew timer, projects to-do, sticky notes; `apothecary brew help`)
 #   apothecary help
 #
 # Installed as ~/.local/bin/apothecary -> <repo>/scripts/apothecary by scripts/install.sh.
@@ -170,7 +170,7 @@ hyprlock_swap_off() {
 # --- processes ------------------------------------------------------------------------------------------
 qs_running() { pgrep -f -x "$QS_CMD" >/dev/null 2>&1; }
 qs_start()   { qs_running && return 0; setsid -f bash -c "exec $QS_CMD >>'$QS_LOG' 2>&1" </dev/null || true; }
-qs_stop()    { pkill -f -x "$QS_CMD" >/dev/null 2>&1 || true; }
+qs_stop()    { timeout 2 $QS_CMD ipc call notes flush >/dev/null 2>&1 || true; pkill -f -x "$QS_CMD" >/dev/null 2>&1 || true; }   # flush: a signal gives the Notes editor no chance to save
 
 hypridle_restart() {            # hypridle_restart theme|stock
     pkill -x hypridle >/dev/null 2>&1 || true
@@ -392,6 +392,8 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
                   (apothecary brew help = full reference)
   projects [list] the 工程 Projects card: add <title> [--note t] [--built] · done|undone|toggle|rm <n|title> · rename · clear ·
                   open (dialog, SUPER+SHIFT+P) · edit <n|title>   (apothecary projects help; one list shared with Overworld)
+  notes [list]    the 札记 Notes card, a pad for raw, stray thoughts: add <text…> · show [n] · rm <n> · edit [n] · clear ·
+                  open · new (SUPER+ALT+N) · next · prev · undo   (apothecary notes help; one pad shared with Overworld)
   repair          re-stop waybar/mako, restart the shell, re-apply the wallpaper (after JaKooLit scripts)
   session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
 
@@ -753,11 +755,53 @@ cmd_projects() {
     esac
 }
 
+# ---------------------------------------------------------------------------------------------- notes (札记 sticky-note card)
+# The pad is shared by every theme and the stock desktop: ~/.local/share/hypr-notes/notes.json, owned by scripts/hypr-notes.  `apothecary notes …`
+# is that CLI plus the verbs that need the shell (open, new, next, prev, undo).
+cmd_notes_help() {
+    cat <<EOF
+apothecary notes — the 札记 Notes card: a pad of memo slips for raw, stray thoughts (no shell needed, except open / new / next / prev / undo)
+
+  notes | notes list [--json]   numbered sheets, the same numbers as the card's page counter; * = the current one
+  notes add <text…>             pin a new sheet; \`-\` reads stdin (echo "buy milk" | apothecary notes add -)
+  notes show [n]                print a sheet (default: the current one)
+  notes rm <n>                  tear a sheet off (no undo from here; the card has one for 5 s)
+  notes edit [n]                open it in \$VISUAL / \$EDITOR, write it back (emptied = dropped)
+  notes clear [--yes]           tear off every sheet (asks y/N on a terminal)
+  notes open                    write on the current sheet in the shell (a click on the card)
+  notes new                     a blank sheet in the shell (SUPER+ALT+N, the + on the card)
+  notes next | prev             flip the card
+  notes undo                    bring back what was just torn off (5 s)
+
+The pad is shared with Overworld and the stock desktop: ~/.local/share/hypr-notes/notes.json, also \`hypr-notes\` (and its rofi menu).
+Examples:
+  apothecary notes add "ask about the lab deadline"
+  apothecary notes rm 2
+EOF
+}
+cmd_notes() {
+    local hn="$REPO/scripts/hypr-notes"
+    [[ -x "$hn" ]] || die "scripts/hypr-notes is missing"
+    local sub="${1:-list}"; shift || true
+    case "$sub" in
+        list|ls|add|show|cat|rm|remove|del|delete|edit|clear|menu|path)
+            exec "$hn" "$sub" "$@" ;;
+        open)     $QS_CMD ipc call notes open >/dev/null 2>&1 || die "the shell is not running (apothecary on)" ;;
+        new)      $QS_CMD ipc call notes newSheet >/dev/null 2>&1 || die "the shell is not running (apothecary on)" ;;
+        next|prev|undo)
+                  local answer; answer="$($QS_CMD ipc call notes "$sub" 2>/dev/null)" || die "the shell is not running (apothecary on)"
+                  say "$answer" ;;
+        help|-h|--help) cmd_notes_help ;;
+        *) warn "unknown: notes $sub"; cmd_notes_help >&2; exit 1 ;;
+    esac
+}
+
 case "${1:-help}" in
     on)            cmd_on ;;
     ws|workspace)  shift; cmd_ws "$@" ;;
     brew)          shift; cmd_brew "$@" ;;
     projects|project) shift; cmd_projects "$@" ;;
+    notes|note)    shift; cmd_notes "$@" ;;
     off)           cmd_off ;;
     status)        cmd_status ;;
     light|dark)    cmd_mode "$1" ;;

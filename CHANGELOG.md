@@ -2,6 +2,27 @@
 
 Changes to the Apothecary Hyprland theme after the first public version. Newest first.
 
+## 2026-11-06 — Notes (札记): sticky notes for raw, stray thoughts, one pad for every theme
+
+### Added
+
+- **Notes card** (10th desktop widget, 254×244 at x 1166 y 812): a pad of herb-paper slips with deckled edges and faint fibres, stitched with a silver needle and a vermilion
+  thread. Page counter, ◀ ▶ and the mouse wheel, `+`, hover ✕ to tear a slip off (scraps, seal cue, 5 s Undo), relative time, fades out when long, empty hint. Light and dark.
+  Listed in the bar's Desk widgets menu.
+- **Editor** on the `apothecary-notes` layer (keyboard focus like the brew dialog): the same slip right over the card. Enter = new line; Esc, Ctrl+Enter, a click outside or the 记 Done seal
+  save and close; Ctrl+N new; Ctrl+PgUp/PgDn flip; saved 700 ms after the last keystroke; empty sheets dropped.
+- `SUPER+ALT+N` opens a new slip; `apothecary notes [list|add|show|rm|edit|clear|open|new|next|prev|undo]`; IPC target `notes`
+  (`open newSheet add next prev remove undo list status flush`).
+- **`scripts/hypr-notes`** (installed as `~/.local/bin/hypr-notes`, byte-identical with Overworld's copy): the standalone CLI that owns every write (flock, in place, refuses to overwrite an
+  invalid file and keeps refused text in `<file>.rescue`), plus `menu` (rofi). The pad is **`~/.local/share/hypr-notes/notes.json`**, shared with Overworld and the stock desktop.
+- **Stock desktop** (both themes off): `hypr/off.conf` binds `SUPER+ALT+N` to `hypr-notes menu --if-stock`. Does nothing while a theme is on.
+- Tests: `tests/notes-quit.test.sh`, `tests/notes-layout.test.js`, `quickshell/Widgets/preview/notes-test.qml`, `notes-render.qml`, `notes-quit-test.qml`.
+
+### Changed
+
+- `ShellState` knows a `notes` modal; `apothecary reload|off` flush unsaved typing before stopping the shell; `scripts/install.sh` / `uninstall.sh` link / unlink `hypr-notes` (uninstall hands the
+  link to Overworld if it is installed; the notes themselves are never removed).
+
 ## 2026-11-06 — Projects (工程): a to-do card, one list for every theme
 
 ### Added
