@@ -23,6 +23,7 @@ Desktop widgets (`quickshell/Widgets`, IPC targets `widgets`, `brew`, `projects`
 | `Osd/` | paper slip with an ink bar (volume / brightness) | `apothecary-osd` | overlay, click-through |
 | `Osd/WorkspaceCard.qml` | workspace card: numeral seal · title · `WORKSPACE n` · note, on every switch to 1–10 | `apothecary-wscard` | overlay, click-through |
 | `Widgets/` (qs-widgets) | desktop cards | `apothecary-widgets` | bottom |
+| `NowPlaying/` | the 影 Now Playing scroll (floating mini-player, silent video mirror), one monitor; docs/WIDGETS.md → Now Playing | `apothecary-nowplaying` | overlay (config `nowplaying.layer`), input mask = the scroll |
 
 Every surface is created per screen with `Variants { model: Quickshell.screens }`; modal overlays only show on the
 focused monitor (`OverlayWindow.onlyFocusedScreen`).
@@ -70,6 +71,7 @@ qs -c apothecary ipc call theme get
 qs -c apothecary ipc call osd volume|brightness
 qs -c apothecary ipc call projects open | add <title> | toggle|done|undone|remove|rm|edit <n|id|title> | undo | list | status   # Projects card
 qs -c apothecary ipc call notes open | newSheet | add <text> | next | prev | remove | undo | list | status | flush   # Notes card
+qs -c apothecary ipc call nowplaying toggle | on | off | status | reveal | reset   # the Now Playing scroll
 qs -c apothecary ipc call workspace reveal <1-10> | current | hide | title <n>   # workspace card
 qs -c apothecary ipc call shell closeAll|status
 qs -c apothecary ipc show                                     # lists every target incl. widgets/brew (qs-widgets)

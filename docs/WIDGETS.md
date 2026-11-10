@@ -151,6 +151,65 @@ theme switch, and `hypr-notes` edits appear live.
 - Tests (offscreen, temp HOME + `HYPR_NOTES_FILE`, `sounds: false`): `preview/notes-test.qml` (service), `preview/notes-render.qml` with `APO_RENDER_WHAT=act` (real key and mouse events on an offscreen window) or `card|undo|edit` (PNG renders),
   `tests/notes-quit.test.sh` (typing survives a quit, a reload and flush + SIGTERM), `tests/notes-layout.test.js` (no overlaps, editor placement). The CLI's own suite is `tests/hypr-notes.test.sh` in the Overworld repo; the script is byte-identical in both.
 
+## Now Playing — 影 (the floating mini-player, not a desk card)
+
+A small **hanging scroll** (掛軸) that floats above your windows and shows what is playing: the title, the cover and, for YouTube and TikTok,
+**the video itself, silent and in sync with the browser** (the sound stays in the browser). It is the same feature as Overworld's Now Playing
+PiP and shares its browser bridge, so one userscript and one video cache serve both themes. **Off until you switch it on**:
+SUPER+ALT+P, the bar's Desk widgets menu (row 影 *Now Playing*), or `apothecary nowplaying on`. It is remembered across restarts.
+- **Look**: a silk cord and ring (bronze by day, gold at night), a rosewood top rod and a heavier bottom rod with gold end caps, the paper
+  between them (the desk cards' `surface` + grain, lacquer at night; alpha = `widgets.opacity` with a floor of 0.88, because it floats over
+  windows), the picture mounted in a band of silk (`wood`) with a gold hairline. Under it: an ink progress line with a seal knob (like the Music
+  card), the title in LXGW WenKai (Latin, Cyrillic, Kazakh, CJK), a 16 px seal **影** (video) or **音** (music) at its right, and the source glyph
+  (YouTube vermilion, Spotify herb green, TikTok plum), the channel / artist and `1:23 / 4:56`. Glyphs checked with `tokens/check-glyphs.sh`:
+  影 音 停 静 are in Ma Shan Zheng, ZCOOL XiaoWei and LXGW WenKai. Every seal has a Latin label (`Accessible.name`), and the overlay text is Latin.
+- **The picture**: the silent mirror video (a local file the shared daemon cached: yt-dlp for YouTube, the userscript's hand-over for TikTok)
+  over the thumbnail, which is fitted with a blurred, darkened copy behind it for the bars (a 4:3 `hqdefault.jpg` with a letterboxed 16:9 picture
+  is cropped instead). TikTok and Shorts get a **portrait** scroll (9:16, 0.9 × width tall), music a square one. No picture at all: a paper
+  square with 影 / 音. *Fetching video…* while the file is on its way; **LIVE** is a little vermilion seal, an ad an ochre slip.
+- **Paused / stopped**: an ink wash with a 停 seal and *PAUSED* (静 *STOPPED* when the music has stopped and it lingers), and the whole scroll
+  dims to 72 %. Full strength on hover.
+- **Hover**: paper chips over the picture — ⏮ **⏯** ⏭ (play/pause is a vermilion seal), and top right 󰏌 (focus the source window) and ✕
+  (turn it off), each with a small paper tooltip. They control the **source player's** MPRIS (the browser tab or Spotify).
+- **TikTok: like · repost · save** (a second row of chips above ⏮ ⏯ ⏭, only for a **logged-in TikTok tab** in Zen with the bridge userscript
+  **1.3.0** or newer — reinstall it with `apothecary nowplaying userscript --serve` — and only when TikTok's action column belongs to the clip
+  the scroll shows; never for YouTube, Spotify or MPRIS-only sources). The tab may be in the background and the clip paused. Each chip is a
+  **toggle** and shows the state: **filled** (vermilion heart, green repost, gold bookmark) = on, paper with an outline glyph = off. **like**
+  likes / unlikes; **repost** reposts / removes the repost (its state is *unknown* until you use it once for that clip: TikTok's page has no
+  repost flag); **save** favourites the clip **and adds it to your collection** `nowplaying.tiktokCollection` (default **"Edits"**, matched
+  by name, case-insensitive; a missing collection is never created: it stays in Favorites only and the scroll says so), and on a saved clip
+  it **un-favourites, which makes TikTok remove it from every collection too**. The userscript clicks TikTok's own buttons in that tab (your
+  session, TikTok's own requests), refuses when the tab shows another clip, and runs one press at a time (all three dim, the running one
+  shows 󰔟). A failure shows for a few seconds as a slip over the picture and stays in the chip's tooltip. Commands travel shell → daemon
+  stdin → the tab's reply over 127.0.0.1 with the token; details in Overworld's `docs/NOWPLAYING.md` → *TikTok*.
+- **Move / size**: drag it anywhere but the buttons; resize from the brush-stroke grip at the bottom-right corner (keeps the aspect, 200–960 px
+  for a 16:9 picture); double-click the strip = back to the default corner and size. Saved per monitor as distances from the nearest two edges
+  in `~/.config/apothecary/nowplaying.json`, so a portrait clip replacing a landscape one grows away from that corner. Default: bottom-right,
+  16 px from the edges (it then covers part of the Quote and Cava cards, which are on the bottom layer).
+- **Hides itself**: 20 s after the music stops (`autoHideSec`), and while the source browser is the focused fullscreen window. Layer
+  **Overlay** (above fullscreen windows; `nowplaying.layer: "top"` keeps it under them), namespace `apothecary-nowplaying`, no keyboard,
+  no exclusive zone; the surface spans the monitor but its input mask is the scroll (the whole monitor only while you drag or resize).
+- **Where the data comes from** (`NowPlayingService`, the same code as Overworld's, only the theme bindings differ): MusicService's MPRIS
+  player, merged with the bridge state `$XDG_RUNTIME_DIR/hypr-nowplaying/state.json`. The daemon `scripts/hypr-nowplaying serve --stdin`
+  (byte-identical with Overworld's copy) runs as a **child of the shell, only while the scroll is on**; with Overworld's shell also running,
+  the second one waits (exit 3, retried) and both read the same state file. Without the userscript, YouTube still works (Zen's MPRIS carries the
+  URL); TikTok needs it: `apothecary nowplaying userscript --serve`, then open the URL it prints in Zen and press Install (Violentmonkey).
+  Details of the bridge, the token and the cache: Overworld's `docs/NOWPLAYING.md`.
+- **Config** `~/.config/apothecary/config.json` → `"nowplaying"`: `layer` `"overlay"`|`"top"`, `autoHideSec` 20, `maxVideoMin` 20 (longer videos:
+  cover only), `hideWhenSourceFullscreen` true, `width` 360, `cacheMB` 400, `port` 47833, `video` true (false = never download),
+  `tiktokCollection` "Edits" (the collection the TikTok save chip adds to).
+- **CLI**: `apothecary nowplaying on|off|toggle|status|reveal|reset|userscript [--serve]|cache [list|clear]|bridge`, `apothecary help nowplaying`.
+  `on|off` with the shell down flip the state file. IPC target `nowplaying`: `toggle on off status reveal reset`.
+- Files: `quickshell/NowPlaying/` — `NowPlayingPip.qml` (the layer), `NowPlayingView.qml` (the scroll), `NowPlayingService.qml`,
+  `NowPlayingIpc.qml`, `VideoMirror.qml` + `sync.js` (byte-identical with Overworld's: MediaPlayer with **no audio output**, steered by the
+  browser's clock).
+- Tests: `tests/nowplaying-service.test.sh` (a private offscreen qs with the real daemon as its child, temp everything, fake browser reports),
+  `quickshell/NowPlaying/preview/render.sh` (offscreen renders of every case in both modes → `qa/screenshots/nowplaying-*.png`;
+  `render.sh <dir> act` runs `preview/act.qml`: real pointer events for hover, tooltip, every button, drag, double-click reset, the grip and the clamp;
+  `render.sh <dir> tt-off tt-on tt-busy tt-unknown tt-error tt-min tt-wide` renders the TikTok chips, `render.sh <dir> tt-act` runs `preview/tt-act.qml`),
+  `preview/mirror-test.qml` (the real mirror player: sync, seek, pause, rate). The daemon's and the userscript's suites live in the Overworld repo
+  (`tests/hypr-nowplaying.test.sh <path to this repo's copy>`, `tests/nowplaying-bridge.test.sh`).
+
 ## IPC
 
 ```

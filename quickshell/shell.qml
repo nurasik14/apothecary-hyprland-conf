@@ -14,10 +14,12 @@ import qs.Widgets
 import qs.Brew
 import qs.Widgets.Projects
 import qs.Widgets.Notes
+import qs.NowPlaying
 
 /*  Apothecary Hyprland — Quickshell entry.  `qs -c apothecary`
  *  Surfaces (layer namespaces): apothecary-bar · apothecary-launcher · apothecary-notif · apothecary-notifcenter ·
- *  apothecary-network · apothecary-power · apothecary-wallpapers · apothecary-osd · apothecary-wscard · apothecary-brew · apothecary-projects · apothecary-notes · apothecary-widgets (qs-widgets)
+ *  apothecary-network · apothecary-power · apothecary-wallpapers · apothecary-osd · apothecary-wscard · apothecary-brew · apothecary-projects · apothecary-notes · apothecary-widgets (qs-widgets) ·
+ *  apothecary-nowplaying (the Now Playing scroll)
  *  IPC: qs -c apothecary ipc call <target> <fn>   — see docs/QUICKSHELL.md
  */
 ShellRoot {
@@ -36,6 +38,7 @@ ShellRoot {
     BrewDialog {}
     ProjectsDialog {}
     NotesEditor {}
+    NowPlayingPip {}    // the floating Now Playing mini-player (hanging scroll + silent video mirror); off until switched on (Desk widgets menu, SUPER+ALT+P)
 
     // ------------------------------------------------------------ IPC (BRIEF §4)
     IpcHandler {

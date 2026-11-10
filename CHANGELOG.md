@@ -2,6 +2,37 @@
 
 Changes to the Apothecary Hyprland theme after the first public version. Newest first.
 
+## 2026-11-10 — Now Playing: like, repost and save TikTok clips from the scroll
+
+### Added
+
+- For a **logged-in TikTok tab** in Zen (background or paused is fine), the scroll's hover controls get a second row of chips: **like**, **repost**, **save**
+  to a collection (config `nowplaying.tiktokCollection`, default `"Edits"`). Each is a toggle that shows the clip's state (filled = on). Un-saving un-favourites
+  the clip, and TikTok then removes it from every collection; a missing collection is never created. Hidden for YouTube, Spotify and MPRIS-only sources.
+  Needs the bridge userscript **1.3.0**: `apothecary nowplaying userscript --serve`, then Install. Details: docs/WIDGETS.md → Now Playing.
+- `scripts/hypr-nowplaying` and `apps/zen/nowplaying-bridge.user.js` updated, still byte-identical with Overworld's (command queue on the daemon's stdin,
+  the userscript runs it on TikTok's own buttons for that clip only). Tests: `tests/nowplaying-service.test.sh` (45), `preview/tt-act.qml`, `render.sh tt-*`.
+
+## 2026-11-10 — Now Playing (影): a floating video mini-player, shared with Overworld
+
+### Added
+
+- **Now Playing scroll** (`quickshell/NowPlaying/`, layer `apothecary-nowplaying`, Overlay by default): a small hanging scroll above your windows — silk cord,
+  rosewood rods with gold caps, paper (lacquer at night), the picture in a silk mount — showing the title, the cover and, for YouTube and TikTok, the **video itself,
+  silent and synced to the browser** (seek, pause, speed). Portrait scroll for TikTok / Shorts, square for music, blurred letterbox for thumbnails, 影 / 音 seal by the
+  title, 停 *Paused* / 静 *Stopped* seals, LIVE / Ad slips, *Fetching video…*. Hover: ⏮ ⏯ ⏭ (play/pause is a vermilion seal), focus the source window, ✕. Drag, resize
+  from the corner, double-click the strip to reset; per-monitor position; hides 20 s after the music stops and while the browser is fullscreen. **Off until switched on.**
+- `SUPER+ALT+P`, a row in the bar's Desk widgets menu, `apothecary nowplaying on|off|toggle|status|reveal|reset|userscript|cache|bridge` + `apothecary help nowplaying`,
+  IPC target `nowplaying` (`toggle on off status reveal reset`), config keys `nowplaying.*` (docs/WIDGETS.md → Now Playing).
+- **`scripts/hypr-nowplaying`** (installed as `~/.local/bin/hypr-nowplaying`) and **`apps/zen/nowplaying-bridge.user.js`**, both byte-identical with Overworld's: the
+  localhost bridge daemon (run by the shell only while the scroll is on) and the Zen userscript. One token, one userscript, one video cache for both themes.
+- Tests: `tests/nowplaying-service.test.sh`, `quickshell/NowPlaying/preview/{render.sh,render.qml,act.qml,service-test.qml,mirror-test.qml}`.
+
+### Changed
+
+- `ConfigService` honours `APO_CONFIG=<file>` (tests). `scripts/install.sh` / `uninstall.sh` link / unlink `hypr-nowplaying` and create its token once (uninstall hands the link
+  to Overworld if it is installed; the token and the cache stay). `apothecary help` accepts a topic (`apothecary help nowplaying`).
+
 ## 2026-11-06 — Notes (札记): sticky notes for raw, stray thoughts, one pad for every theme
 
 ### Added

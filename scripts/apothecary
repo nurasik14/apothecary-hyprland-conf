@@ -3,8 +3,9 @@
 #
 #   apothecary on | off | status | toggle | light | dark | reload | session-start
 #   apothecary wallpaper next | prev | current | pick | <path>
-#   apothecary ws … | brew … | projects … | notes …   (workspace titles, brew timer, projects to-do, sticky notes; `apothecary brew help`)
-#   apothecary help
+#   apothecary ws … | brew … | projects … | notes … | nowplaying …   (workspace titles, brew timer, projects to-do, sticky notes,
+#   the Now Playing scroll; `apothecary brew help`, `apothecary help nowplaying`)
+#   apothecary help [nowplaying]
 #
 # Installed as ~/.local/bin/apothecary -> <repo>/scripts/apothecary by scripts/install.sh.
 # Everything it touches lives in ~/.config/apothecary/ (state) and ~/.config/hypr/hyprlock.conf (only while on).
@@ -394,6 +395,8 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
                   open (dialog, SUPER+SHIFT+P) · edit <n|title>   (apothecary projects help; one list shared with Overworld)
   notes [list]    the 札记 Notes card, a pad for raw, stray thoughts: add <text…> · show [n] · rm <n> · edit [n] · clear ·
                   open · new (SUPER+ALT+N) · next · prev · undo   (apothecary notes help; one pad shared with Overworld)
+  nowplaying [status]  the 影 Now Playing scroll, a floating mini-player with the video (silent): on · off · toggle (SUPER+ALT+P) ·
+                  reveal · reset · userscript [--serve] · cache [list|clear] · bridge   (apothecary help nowplaying)
   repair          re-stop waybar/mako, restart the shell, re-apply the wallpaper (after JaKooLit scripts)
   session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
 
@@ -796,12 +799,70 @@ cmd_notes() {
     esac
 }
 
+# ---------------------------------------------------------------------------------------------- nowplaying (影, the PiP mini-player)
+# The surface is quickshell/NowPlaying (IPC target `nowplaying`); the browser bridge + video cache is the shared scripts/hypr-nowplaying
+# (byte-identical with Overworld's copy: one token, one userscript, one cache for both themes).
+HYPR_NOWPLAYING="$REPO/scripts/hypr-nowplaying"
+NP_STATE="$STATE/nowplaying.json"
+
+cmd_nowplaying_help() {
+    cat <<'EOF'
+apothecary nowplaying — the 影 Now Playing scroll: a small hanging scroll that floats above your windows with the title, the cover
+and, for YouTube / TikTok, the video itself (silent; the sound stays in the browser). Drag it, resize it from its corner, double-click
+its strip to send it back; hover for ⏮ ⏯ ⏭, 󰏌 (jump to the source window) and ✕.
+
+  nowplaying on | off | toggle   switch it (also SUPER+ALT+P and the bar's Desk widgets menu); remembered across restarts, starts off
+  nowplaying status              what it shows, the bridge daemon, the video
+  nowplaying reveal              show it on the focused monitor now, even when nothing plays
+  nowplaying reset               back to its default corner and size
+  nowplaying userscript [--serve]   install the Zen bridge: writes the userscript with your token and offers it on a local URL
+  nowplaying cache [list|clear]  the downloaded mirror videos (~/.cache/hypr-nowplaying)
+  nowplaying bridge              the daemon's own status (hypr-nowplaying status)
+
+Without the userscript it still works from MPRIS: Spotify and others show cover + title, a YouTube tab its video (the id comes
+from Zen's MPRIS URL). TikTok needs the userscript. The bridge is shared with Overworld: install the userscript once.
+Config (~/.config/apothecary/config.json → "nowplaying"): layer "overlay"|"top", autoHideSec 20, maxVideoMin 20,
+hideWhenSourceFullscreen true, width 360, cacheMB 400, port 47833, video true.  More: docs/WIDGETS.md → Now Playing
+EOF
+}
+np_port() { json_get '.nowplaying.port' 47833; }
+np_ipc() { timeout 3 $QS_CMD ipc call nowplaying "$@" 2>/dev/null; }
+np_write_on() {                 # shell not running: flip "on" in the state file (keeps the saved positions)
+    have jq || die "jq is required"
+    local cur='{}' tmp
+    [[ -s "$NP_STATE" ]] && cur="$(cat "$NP_STATE")"
+    tmp="$(jq -c --argjson on "$1" '(if type == "object" then . else {} end) | .on = $on' <<<"$cur" 2>/dev/null)" || tmp="{\"on\": $1}"
+    printf '%s\n' "$tmp" >"$NP_STATE"
+}
+cmd_nowplaying() {
+    local sub="${1:-status}"; shift || true
+    case "$sub" in
+        on|off|toggle|reveal|reset)
+            local answer
+            if answer="$(np_ipc "$sub")"; then say "$answer"
+            elif [[ "$sub" == on || "$sub" == off ]]; then
+                np_write_on "$([[ "$sub" == on ]] && echo true || echo false)"
+                say "$sub (the shell is not running; it applies when it starts)"
+            else die "the shell is not running (apothecary on)"; fi ;;
+        status)
+            local answer
+            if answer="$(np_ipc status)"; then say "$answer"
+            else say "shell not running; saved: $(jq -r 'if .on then "on" else "off" end' "$NP_STATE" 2>/dev/null || echo off)"; fi ;;
+        userscript) exec "$HYPR_NOWPLAYING" userscript --port "$(np_port)" "$@" ;;
+        cache)      exec "$HYPR_NOWPLAYING" cache "$@" ;;
+        bridge|daemon) exec "$HYPR_NOWPLAYING" status "$@" ;;
+        help|-h|--help) cmd_nowplaying_help ;;
+        *) warn "unknown: nowplaying $sub"; cmd_nowplaying_help >&2; exit 1 ;;
+    esac
+}
+
 case "${1:-help}" in
     on)            cmd_on ;;
     ws|workspace)  shift; cmd_ws "$@" ;;
     brew)          shift; cmd_brew "$@" ;;
     projects|project) shift; cmd_projects "$@" ;;
     notes|note)    shift; cmd_notes "$@" ;;
+    nowplaying|pip) shift; cmd_nowplaying "$@" ;;
     off)           cmd_off ;;
     status)        cmd_status ;;
     light|dark)    cmd_mode "$1" ;;
@@ -811,6 +872,6 @@ case "${1:-help}" in
     gamemode)      shift; cmd_gamemode "${1:-toggle}" ;;
     repair)        cmd_repair ;;
     session-start) cmd_session_start ;;
-    help|-h|--help) cmd_help ;;
+    help|-h|--help) case "${2:-}" in nowplaying|pip) cmd_nowplaying_help ;; *) cmd_help ;; esac ;;
     *)             warn "unknown command: $1"; cmd_help; exit 2 ;;
 esac

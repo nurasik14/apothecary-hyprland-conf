@@ -84,6 +84,12 @@ if you turn it on, written by Claude (`· AUTO`).
   **Projects** to-do (工程: ink checkboxes, a vermilion 成 seal on what you built) whose list is shared with Overworld and
   the stock desktop (`hypr-projects`, rofi menu on SUPER+SHIFT+P when no theme is on), and **Notes** (札记: Maomao's memo slips of herb-paper stitched with a
   silver needle, for raw, stray thoughts; SUPER+ALT+N; one pad shared the same way through `hypr-notes`). Drag a card by its title bar to move it.
+- **Now Playing** (影): a small hanging scroll that floats above your windows with the title, the cover and, for YouTube and
+  TikTok, the video itself, silent and in sync with the browser. Hover for ⏮ ⏯ ⏭, drag it, resize it from its corner; it hides
+  when the browser goes fullscreen. Off until you switch it on (SUPER+ALT+P or the Desk widgets menu); shares its browser bridge with Overworld.
+  For TikTok, while Zen stays on another workspace: ⏮ / ⏭ scroll the feed, a second hover row likes, reposts and saves the clip
+  into a collection (`nowplaying.tiktokCollection`, default "Edits"; each a toggle showing the clip's state), and a clip that
+  stalls for 7 s is reloaded on its own.
 - Slow, soft **ink** animations (no bounce), translucent paper windows, hyprlock + hypridle, an SDDM theme,
   synthesized wood-block / guqin sound cues.
 - Matching themes for kitty, rofi, GTK 3/4, Qt (Kvantum + qt6ct), superfile, btop, cava, fastfetch (with Maomao),
@@ -123,6 +129,7 @@ apothecary ws auto on|off|status|now [n]|clear|log      # Claude labels, re-chec
 apothecary ws help                                      # full reference
 apothecary projects [list] | add "Title" [--note t] | done|undone|rm <n|title> | open   # the Projects card; SUPER+SHIFT+P
 apothecary notes [list] | add "a thought" | show [n] | rm <n> | edit [n] | open | new | next | prev | undo   # the Notes card; SUPER+ALT+N
+apothecary nowplaying on|off|toggle|status|reveal|reset|userscript --serve|cache [list|clear]   # the Now Playing scroll; SUPER+ALT+P
 ```
 
 ## Art and credits

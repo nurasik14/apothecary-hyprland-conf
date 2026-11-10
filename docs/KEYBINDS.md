@@ -28,6 +28,7 @@ Active only while the theme is on (`apothecary on`); `hypr/keybinds.conf` is sou
 | `SUPER + SHIFT + B` | Brew timer: set brew / rest time (dialog) | `qs -c apothecary ipc call brew open` | `RainbowBorders-low-cpu.sh` (dropped: rainbow borders are off-theme) |
 | `SUPER + SHIFT + P` | Projects: add a project (dialog) | `qs -c apothecary ipc call projects open` | — (free; `unbind`ed first so the stock-desktop menu bind from `hypr/off.conf` does not also fire) |
 | `SUPER + ALT + N` | Notes: a new slip to write on | `qs -c apothecary ipc call notes newSheet` | — (free; `unbind`ed first, same reason; `SUPER+N`, `SUPER+SHIFT+N`, `SUPER+CTRL+N` are taken) |
+| `SUPER + ALT + P` | Now Playing scroll (floating video mini-player) on / off | `qs -c apothecary ipc call nowplaying toggle` | — (free: JaKooLit has it only commented out in `UserKeybinds.conf`; the same key as Overworld's) |
 | `XF86AudioRaise/Lower/Mute` | Volume OSD (in addition to JaKooLit's `Volume.sh`) | `qs -c apothecary ipc call osd volume` | — (additional bind, both fire) |
 | `XF86MonBrightnessUp/Down` | Brightness OSD (in addition to `Brightness.sh`) | `qs -c apothecary ipc call osd brightness` | — (additional bind, both fire) |
 

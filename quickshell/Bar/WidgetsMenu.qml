@@ -4,9 +4,12 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Common
 import qs.Widgets.Services
+import qs.NowPlaying
 
 /*  WidgetsMenu — paper slip under the bar's widgets chip (󰕮): switch the desktop layer and each card on/off.
  *  Click outside (HyprlandFocusGrab) or Esc closes it.  State lives in WidgetsState (persisted).
+ *  Below the cards: the Now Playing scroll (影, an overlay, not a desk card: "All widgets" leaves it alone and it is not dimmed with
+ *  the desk; its on/off lives in NowPlayingService, ~/.config/apothecary/nowplaying.json).
  */
 PanelWindow {
     id: menu
@@ -84,6 +87,13 @@ PanelWindow {
                     dimmed: !WidgetsState.visible
                     onToggled: WidgetsState.toggleCard(modelData.id)
                 }
+            }
+
+            Rectangle { width: parent.width; height: 1; color: Theme.hairline }
+            MenuRow {
+                cjk: "影"; label: "Now Playing  (Super+Alt+P)"
+                checked: NowPlayingService.on
+                onToggled: NowPlayingService.toggle()
             }
 
             Rectangle { width: parent.width; height: 1; color: Theme.hairline }
