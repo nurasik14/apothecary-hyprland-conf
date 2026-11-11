@@ -117,11 +117,14 @@ Variants {
                 }
                 Rectangle { width: 1; height: 12; color: Theme.hairline; anchors.verticalCenter: parent.verticalCenter }
                 InkText { role: "small"; text: TimeService.dateLabel; muted: true; anchors.verticalCenter: parent.verticalCenter }
+                Rectangle { visible: SemesterService.label.length > 0; width: 1; height: 12; color: Theme.hairline; anchors.verticalCenter: parent.verticalCenter }
+                InkText { visible: SemesterService.label.length > 0; role: "small"; text: SemesterService.label; muted: true; anchors.verticalCenter: parent.verticalCenter }
             }
             MouseArea { id: clockMouse; anchors.fill: parent; hoverEnabled: true }
             BarTooltip {
                 target: clockChip; shown: clockChip.hovered
                 text: clockChip.sc.glyph + " · " + clockChip.sc.name + " · " + clockChip.sc.range + " · " + TimeService.dateLong
+                    + (SemesterService.title.length ? " · " + SemesterService.title + ", " + SemesterService.detail : "")
             }
         }
 
