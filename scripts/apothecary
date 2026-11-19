@@ -384,7 +384,8 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
                   no animations/blur/gaps/widgets for games; off restores the theme (SUPER+SHIFT+G)
   ws [list]       your title + note for workspaces 1–10 (shown in a card when you switch, and on bar hover)
   ws <n> "Title" ["note"]  |  ws <n> --note "text"  |  ws <n> --clear  |  ws edit  |  ws show [n]
-  ws auto on|off|status|now [n]|clear|log      (apothecary ws help = full reference)
+  ws auto on|off|toggle|status|now [n]|clear|log   (apothecary ws help = full reference)
+  ws card on|off|toggle|status                   the title card on workspace switch
                   let Claude (your plan, haiku) title untitled workspaces, rewrite a title + note that no
                   longer match the windows, and reset workspaces that stayed empty for 10 min.
                   ws <n> --pin protects one; ws <n> --auto hands one back to Claude
@@ -396,7 +397,8 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
   notes [list]    the 札记 Notes card, a pad for raw, stray thoughts: add <text…> · show [n] · rm <n> · edit [n] · clear ·
                   open · new (SUPER+ALT+N) · next · prev · undo   (apothecary notes help; one pad shared with Overworld)
   nowplaying [status]  the 影 Now Playing scroll, a floating mini-player with the video (silent): on · off · toggle (SUPER+ALT+P) ·
-                  reveal · reset · userscript [--serve] · cache [list|clear] · bridge   (apothecary help nowplaying)
+                  reveal · reset · sources · pick <n|next|prev|auto> · userscript [--serve] · cache [list|clear] · bridge
+                  (apothecary help nowplaying)
   repair          re-stop waybar/mako, restart the shell, re-apply the wallpaper (after JaKooLit scripts)
   session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
 
@@ -446,8 +448,12 @@ hovering a numeral in the bar shows the title.
   ws show [n]                     flash the card for n (default: current workspace)
   ws help                         this help
 
+The card itself:
+  ws card on | off | toggle       show / hide the card on workspace switch
+  ws card status                  on or off
+
 Claude auto-labelling (off by default; uses your logged-in Claude Code plan, model haiku):
-  ws auto on | off                start / stop the watcher (runs inside the shell)
+  ws auto on | off | toggle       start / stop the watcher (runs inside the shell)
   ws auto status                  enabled?, settings, watcher running?, last log lines
   ws auto now [n]                 label untitled + check every titled workspace now (no waiting);
                                   with n: relabel n unconditionally
@@ -482,9 +488,25 @@ Examples:
 EOF
 }
 
+cmd_ws_card() {
+    local cfg="$STATE/config.json" en
+    en="$(jq -r 'if .workspace_card.enabled == false then "false" else "true" end' "$cfg" 2>/dev/null || echo true)"
+    case "${1:-status}" in
+        toggle) if [[ "$en" == true ]]; then cmd_ws_card off; else cmd_ws_card on; fi ;;
+        on)     ws_cfg '.workspace_card = ((.workspace_card // {}) + {enabled: true})'
+                say "workspace cards ON — the title card shows when you switch workspace" ;;
+        off)    ws_cfg '.workspace_card = ((.workspace_card // {}) + {enabled: false})'
+                say "workspace cards OFF (titles stay; bar hover still shows them)" ;;
+        status) say "workspace cards: $([[ "$en" == true ]] && echo on || echo off)" ;;
+        help|-h|--help) cmd_ws_help ;;
+        *)      warn "unknown: ws card $1"; cmd_ws_help >&2; exit 1 ;;
+    esac
+}
+
 cmd_ws_auto() {
     local cfg="$STATE/config.json"
     case "${1:-status}" in
+        toggle) if [[ "$(jq -r '.workspace_auto.enabled // false' "$cfg" 2>/dev/null)" == true ]]; then cmd_ws_auto off; else cmd_ws_auto on; fi ;;
         on)     have claude || [[ -x "$HOME/.local/bin/claude" ]] || die "the claude CLI is not installed"
                 ws_cfg '.workspace_auto = ((.workspace_auto // {}) + {enabled: true})'
                 say "auto-labelling ON — Claude (your plan, model $(jq -r '.workspace_auto.model // "haiku"' "$cfg")) names workspaces that need it"
@@ -525,6 +547,8 @@ cmd_ws() {
             say ""; say "set:  apothecary ws <1-10> \"Title\" [\"note\"]   ·   edit: apothecary ws edit   ·   Claude: apothecary ws auto on" ;;
         auto)
             shift; cmd_ws_auto "$@" ;;
+        card)
+            shift; cmd_ws_card "$@" ;;
         help|-h|--help)
             cmd_ws_help ;;
         edit)
@@ -818,6 +842,9 @@ its strip to send it back; hover for ⏮ ⏯ ⏭, 󰏌 (jump to the source windo
   nowplaying userscript [--serve]   install the Zen bridge: writes the userscript with your token and offers it on a local URL
   nowplaying cache [list|clear]  the downloaded mirror videos (~/.cache/hypr-nowplaying)
   nowplaying bridge              the daemon's own status (hypr-nowplaying status)
+  nowplaying sources             several tabs / apps playing: one line each (0 = auto), * = the current choice
+  nowplaying pick <n|next|prev|auto>   show source n until it goes away (then Auto again); also the PiP's source chip
+                                 (hover: "YouTube 2/3", click = list, wheel = next / previous)
 
 Without the userscript it still works from MPRIS: Spotify and others show cover + title, a YouTube tab its video (the id comes
 from Zen's MPRIS URL). TikTok needs the userscript. The bridge is shared with Overworld: install the userscript once.
@@ -848,6 +875,15 @@ cmd_nowplaying() {
             local answer
             if answer="$(np_ipc status)"; then say "$answer"
             else say "shell not running; saved: $(jq -r 'if .on then "on" else "off" end' "$NP_STATE" 2>/dev/null || echo off)"; fi ;;
+        sources)
+            local answer
+            if answer="$(np_ipc sources)"; then printf '%s\n' "$answer"
+            else die "the shell is not running (apothecary on)"; fi ;;
+        pick)
+            [[ $# -ge 1 ]] || die "nowplaying pick <n|next|prev|auto>   (apothecary nowplaying sources lists them)"
+            local answer
+            if answer="$(np_ipc pick "$1")"; then say "$answer"
+            else die "the shell is not running (apothecary on)"; fi ;;
         userscript) exec "$HYPR_NOWPLAYING" userscript --port "$(np_port)" "$@" ;;
         cache)      exec "$HYPR_NOWPLAYING" cache "$@" ;;
         bridge|daemon) exec "$HYPR_NOWPLAYING" status "$@" ;;
