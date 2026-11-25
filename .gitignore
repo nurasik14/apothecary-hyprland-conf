@@ -17,3 +17,9 @@ qa/current-desktop.png
 
 # Minecraft brewing sounds (© Mojang) — scripts/fetch-minecraft-sounds.sh downloads them
 assets/sounds/minecraft/
+
+# ---- build/orchestration notes (agent prompts, agent reports, cross-agent requests, build log): local only
+docs/agent-prompts/
+docs/agent-reports/
+docs/REQUESTS.md
+docs/STATUS.md

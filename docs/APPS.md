@@ -56,5 +56,5 @@ symlinks point at the backup, so the user's file content is exactly what it was.
 
 - Running GTK apps (Thunar daemon) need a restart to pick up `gtk.css`; `apply-mode.sh` deliberately restarts nothing.
 - Qt apps re-read qt6ct/Kvantum on launch only.
-- tokens `fastfetch-colors.jsonc` uses renamed keys (`display.bar.charElapsed` → `display.bar.char.elapsed`, `borderLeft` → `border.left`) — fastfetch 2.68 refuses the file; noted in REQUESTS.md. The app configs here inline the corrected block.
+- tokens `fastfetch-colors.jsonc` uses renamed keys (`display.bar.charElapsed` → `display.bar.char.elapsed`, `borderLeft` → `border.left`) — fastfetch 2.68 refuses the file. The app configs here inline the corrected block.
 - Papirus folder colour (teal) not done (`papirus-folders` absent; would require copying Papirus to `~/.local/share/icons`).
