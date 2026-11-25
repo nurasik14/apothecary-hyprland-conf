@@ -58,6 +58,10 @@ chmod +x "$REPO/scripts/hypr-projects"
 # the sticky-notes CLI (+ rofi menu on SUPER+ALT+N while no theme is on); same arrangement: one script per theme repo, the data is shared
 link "$REPO/scripts/hypr-notes" "$BIN/hypr-notes"
 chmod +x "$REPO/scripts/hypr-notes"
+# the Google Calendar CLI behind the Calendar card's events (hypr-gcal sync|today|next|list|add|open|status); byte-identical with Overworld's copy,
+# the cache (~/.cache/hypr-gcal/events.json) is shared by both themes
+link "$REPO/scripts/hypr-gcal" "$BIN/hypr-gcal"
+chmod +x "$REPO/scripts/hypr-gcal"
 # the Now Playing bridge daemon/CLI (the 影 scroll's browser bridge + video cache); same arrangement, byte-identical with Overworld's
 # copy, and its token (~/.local/share/hypr-nowplaying/token, shared by both themes) is made once here
 link "$REPO/scripts/hypr-nowplaying" "$BIN/hypr-nowplaying"

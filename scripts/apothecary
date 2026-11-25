@@ -3,9 +3,9 @@
 #
 #   apothecary on | off | status | toggle | light | dark | reload | session-start
 #   apothecary wallpaper next | prev | current | pick | <path>
-#   apothecary ws … | brew … | projects … | notes … | nowplaying …   (workspace titles, brew timer, projects to-do, sticky notes,
-#   the Now Playing scroll; `apothecary brew help`, `apothecary help nowplaying`)
-#   apothecary help [nowplaying]
+#   apothecary ws … | brew … | projects … | notes … | calendar … | nowplaying …   (workspace titles, brew timer, projects to-do, sticky notes,
+#   Google Calendar events, the Now Playing scroll; `apothecary brew help`, `apothecary help calendar`, `apothecary help nowplaying`)
+#   apothecary help [calendar|nowplaying]
 #
 # Installed as ~/.local/bin/apothecary -> <repo>/scripts/apothecary by scripts/install.sh.
 # Everything it touches lives in ~/.config/apothecary/ (state) and ~/.config/hypr/hyprlock.conf (only while on).
@@ -396,6 +396,8 @@ apothecary — Apothecary Hyprland theme (薬屋のひとりごと / Maomao)
                   open (dialog, SUPER+SHIFT+P) · edit <n|title>   (apothecary projects help; one list shared with Overworld)
   notes [list]    the 札记 Notes card, a pad for raw, stray thoughts: add <text…> · show [n] · rm <n> · edit [n] · clear ·
                   open · new (SUPER+ALT+N) · next · prev · undo   (apothecary notes help; one pad shared with Overworld)
+  calendar [today] the 日历 Calendar card with your Google Calendar: sync · today · next · list [--day D|--upcoming N] ·
+                  add "<title>" <date> [time] · status · open <id> · card day|today|next|prev|open|close|add   (apothecary help calendar)
   nowplaying [status]  the 影 Now Playing scroll, a floating mini-player with the video (silent): on · off · toggle (SUPER+ALT+P) ·
                   reveal · reset · sources · pick <n|next|prev|auto> · userscript [--serve] · cache [list|clear] · bridge
                   (apothecary help nowplaying)
@@ -823,6 +825,52 @@ cmd_notes() {
     esac
 }
 
+# ---------------------------------------------------------------------------------------------- calendar (日历, Google Calendar on the Calendar card)
+# The events come from Google (read-only) into ~/.cache/hypr-gcal/events.json, written by the shared scripts/hypr-gcal (byte-identical with
+# Overworld's copy: one cache for both themes); the card's service (quickshell/Widgets/Services/CalendarService.qml) watches that file.
+# `apothecary calendar …` is that CLI plus `card …` for the shell.
+HYPR_GCAL="$REPO/scripts/hypr-gcal"
+
+cmd_calendar_help() {
+    cat <<'EOF'
+apothecary calendar — Google Calendar events on the 日历 Calendar card (also `apothecary gcal …`, or `hypr-gcal …` anywhere)
+
+  calendar sync                 fetch the events now (the card does it on its own every 10 min, after resume and after an add)
+  calendar today | next         today's events; the next one on a single line (for a bar)
+  calendar list [--day D | --upcoming N] [--json]     D = YYYY-MM-DD, MM-DD, today, tomorrow, +N, mon … sun
+  calendar add "<title>" <date> [<HH:MM> [<HH:MM>|<dur>]] [--location L]     all day without a time; dur = 90m, 1h30
+  calendar add --parse "14:00 Meeting @MMW2450" --date tomorrow       also "all day Exam", "9:30-11 Lab"
+  calendar status               ok / stale / offline / not-configured (exit 0 / 0 / 1 / 2)
+  calendar open <id>            open an event in the browser
+  calendar card <fn> [arg]      drive the card in the shell: day <D> | today | next | prev (month) | open | close (expanded agenda) |
+                                add <line> (add to the selected day) | status | list | newEvent
+
+On the card: hover a day for its events, click a day for its agenda, click an event to open it, double-click a day (or the +) to add one.
+
+Connect Google Calendar: `hypr-gcal` needs a backend, the command that talks to Google (read events, create events):
+  - it uses ~/.hermes/skills/productivity/google-workspace/scripts/google_api.py when that exists, or
+  - HYPR_GCAL_BACKEND=<command>, or ~/.config/hypr-gcal/config.json  {"backend": "<command>"}
+  called as `<backend> calendar list --start ISO --end ISO --max N` (prints a JSON array of {id, summary, start, end, location,
+  description, status, htmlLink}) and `<backend> calendar create --summary S --start ISO --end ISO [--location L]`.
+Reading never changes anything; the only write is `add`.  HYPR_GCAL_DRYRUN=1 makes `add` print the command instead of running it.
+The cache is shared with Overworld (~/.cache/hypr-gcal/events.json).
+Privacy: event titles are read from Google and cached locally in that file only; nothing is sent anywhere else.
+EOF
+}
+cmd_calendar() {
+    [[ -x "$HYPR_GCAL" ]] || die "scripts/hypr-gcal is missing"
+    local sub="${1:-}"; shift || true
+    case "$sub" in
+        "") exec "$HYPR_GCAL" today ;;
+        sync|list|ls|today|next|status|add|parse|open|path) exec "$HYPR_GCAL" "$sub" "$@" ;;
+        card) local fn="${1:-status}"; shift || true
+              local answer; answer="$($QS_CMD ipc call calendar "$fn" "$@" 2>/dev/null)" || die "the shell is not running (apothecary on)"
+              [[ -n "$answer" ]] && say "$answer" || true ;;
+        help|-h|--help) cmd_calendar_help ;;
+        *) warn "unknown: calendar $sub"; cmd_calendar_help >&2; exit 1 ;;
+    esac
+}
+
 # ---------------------------------------------------------------------------------------------- nowplaying (影, the PiP mini-player)
 # The surface is quickshell/NowPlaying (IPC target `nowplaying`); the browser bridge + video cache is the shared scripts/hypr-nowplaying
 # (byte-identical with Overworld's copy: one token, one userscript, one cache for both themes).
@@ -898,6 +946,7 @@ case "${1:-help}" in
     brew)          shift; cmd_brew "$@" ;;
     projects|project) shift; cmd_projects "$@" ;;
     notes|note)    shift; cmd_notes "$@" ;;
+    calendar|cal|gcal) shift; cmd_calendar "$@" ;;
     nowplaying|pip) shift; cmd_nowplaying "$@" ;;
     off)           cmd_off ;;
     status)        cmd_status ;;
@@ -908,6 +957,6 @@ case "${1:-help}" in
     gamemode)      shift; cmd_gamemode "${1:-toggle}" ;;
     repair)        cmd_repair ;;
     session-start) cmd_session_start ;;
-    help|-h|--help) case "${2:-}" in nowplaying|pip) cmd_nowplaying_help ;; *) cmd_help ;; esac ;;
+    help|-h|--help) case "${2:-}" in nowplaying|pip) cmd_nowplaying_help ;; calendar|cal|gcal) cmd_calendar_help ;; *) cmd_help ;; esac ;;
     *)             warn "unknown command: $1"; cmd_help; exit 2 ;;
 esac

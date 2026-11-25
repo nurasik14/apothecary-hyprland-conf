@@ -84,6 +84,8 @@ if you turn it on, written by Claude (`· AUTO`).
   **Projects** to-do (工程: ink checkboxes, a vermilion 成 seal on what you built) whose list is shared with Overworld and
   the stock desktop (`hypr-projects`, rofi menu on SUPER+SHIFT+P when no theme is on), and **Notes** (札记: Maomao's memo slips of herb-paper stitched with a
   silver needle, for raw, stray thoughts; SUPER+ALT+N; one pad shared the same way through `hypr-notes`). Drag a card by its title bar to move it.
+  The **Calendar** card shows your Google Calendar too (ink drops under the days with events, paper-slip tooltips, click a day for its agenda, double-click to add one; `apothecary calendar`, the
+  CLI `hypr-gcal` and its cache are shared with Overworld).
 - **Now Playing** (影): a small hanging scroll that floats above your windows with the title, the cover and, for YouTube and
   TikTok, the video itself, silent and in sync with the browser. Hover for ⏮ ⏯ ⏭, drag it, resize it from its corner; it hides
   when the browser goes fullscreen. Off until you switch it on (SUPER+ALT+P or the Desk widgets menu); shares its browser bridge with Overworld.
@@ -129,6 +131,7 @@ apothecary ws auto on|off|status|now [n]|clear|log      # Claude labels, re-chec
 apothecary ws help                                      # full reference
 apothecary projects [list] | add "Title" [--note t] | done|undone|rm <n|title> | open   # the Projects card; SUPER+SHIFT+P
 apothecary notes [list] | add "a thought" | show [n] | rm <n> | edit [n] | open | new | next | prev | undo   # the Notes card; SUPER+ALT+N
+apothecary calendar [today] | sync | next | list [--day D] | add "14:00 Lab @room" --parse --date D | status | open <id> | card …   # the Calendar card + Google Calendar
 apothecary nowplaying on|off|toggle|status|reveal|reset|userscript --serve|cache [list|clear]   # the Now Playing scroll; SUPER+ALT+P
 ```
 
@@ -140,7 +143,7 @@ Character art from the light novels (Touko Shino), manga (Nekokurage) and anime 
 textures, synthesized sounds and the quote sources are listed in [assets/CREDITS.md](assets/CREDITS.md).
 Layout inspiration: qxb3's "ink" rice and end-4's dots-hyprland (no files copied).
 
-The process notes in `docs/agent-prompts/`, `docs/STATUS.md` and `qa/` are the build log: the theme was designed and
+The QA report in `qa/` is the build record: the theme was designed and
 implemented by a team of AI agents (Hermes + Claude) under the owner's direction, then QA-tested on real hardware.
 
 ## License

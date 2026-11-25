@@ -151,6 +151,42 @@ theme switch, and `hypr-notes` edits appear live.
 - Tests (offscreen, temp HOME + `HYPR_NOTES_FILE`, `sounds: false`): `preview/notes-test.qml` (service), `preview/notes-render.qml` with `APO_RENDER_WHAT=act` (real key and mouse events on an offscreen window) or `card|undo|edit` (PNG renders),
   `tests/notes-quit.test.sh` (typing survives a quit, a reload and flush + SIGTERM), `tests/notes-layout.test.js` (no overlaps, editor placement). The CLI's own suite is `tests/hypr-notes.test.sh` in the Overworld repo; the script is byte-identical in both.
 
+## Calendar events — 日历 (the Calendar card shows your Google Calendar)
+
+The Calendar card (same 380 × 260 slot) is interactive and shows the events of the user's Google Calendar. This section supersedes the one-line
+"Calendar — Mon–Sun grid … JS Date" description in *Cards* above. Same feature, same data and same CLI as Overworld's Clock & Calendar card, dressed as paper and ink.
+
+- **Look.** Header `November 2026 | 十一月` (the CJK month in vermilion; click the month name = back to today) and ‹ 󰋜 › buttons. Under it **one line**:
+  `Next: 14:00 Lab` / `In 12 min: Lab` (turns seal-red and bold when it starts within 15 min, a vermilion drop before it), `N left today` on the right.
+  Weekday row, then the month: weekends in `accent2`, out-of-month days faded, **today = a vermilion seal stamped behind the number**, and **ink drops under every
+  day with events** (up to three, in the tag's ink; a hollow drop is an all-day event; `+` when there are more). The **selected day** is circled by a brushed ink ring
+  (a canvas stroke, a little different for every day; today + selected = a thin ink frame round the seal). Footer: a dot (herb green = fresh, gold = stale,
+  vermilion = offline, hollow = not connected) and `synced 14:02` / `offline · last sync 14:02` / `Not connected`; click = sync now.
+- **Tag inks** (the `[tag]` prefix of an event title): class / lecture / tutorial / lab = jade, opp / club = gold, email / mail = indigo, exam / test / quiz / deadline = seal,
+  meeting = plum, todo = herb, anything else plain muted ink (`CalendarService.tagInk` / `tagColor`). Shown as a stamped chip (`TagChip.qml`).
+- **Paper-slip tooltips** (`SlipTip.qml`): hover a day → a slip (cream by day, lacquer-brown at night, thin ink frame, hairline rule, vermilion edge) with the date and up to 5
+  events (time · tag · title, `+N more`); hover an agenda row → title, time, place, notes and "Click: open in the browser". Hover the next line, the footer and the small buttons for a hint.
+- **Click a day**: the month folds into its week and the agenda of that day opens in the same card (no growth: the slot has no room). Click an event = open it in the browser
+  (`hypr-gcal open`); the wheel scrolls a busy day (a thin ink bar shows it); **󰅃** brings the month back; the arrows and the wheel over the week move a week, over the month a month.
+- **Quick add** (`Calendar/CalendarEditor.qml`, layer `apothecary-calendar`, `ShellState.calendarOpen`, so it is one modal among the others; panel `CalendarForm.qml` titled `日程 · New event`):
+  double-click a day, the **󰐕** of the agenda, or `apothecary calendar card newEvent`. One ink field, a live preview of what the line becomes (`→ 09:30-11:00 · Lab @MMW2450`, parsed by `hypr-gcal parse`,
+  the same parser the CLI uses), `Add` / `Cancel`. `14:00 Meeting @MMW2450` · `9:30-11 Lab` · `2pm for 90m Call` · `all day Exam`. Enter adds (`hypr-gcal add --parse … --date <day>` = one
+  **real** Google event, then a re-sync and an "Event added" notification), Esc / click outside closes, an error stays under the field. The panel opens over the card (`CalendarPlace.js`).
+  Layer rule in `hypr/decorations.conf` (fade, like Notes).
+- **States**: loading · ok · stale (last sync > 30 min ago) · offline (VPN down: the saved events stay, retry every 2 min) · not-configured (`Connect Google Calendar`, hover for the command).
+- **Data** (shared with Overworld): `~/.cache/hypr-gcal/events.json` (`HYPR_GCAL_CACHE`), written by `scripts/hypr-gcal sync` — **byte-identical with Overworld's copy** (like `hypr-notes`; `install.sh` links
+  `~/.local/bin/hypr-gcal`, `uninstall.sh` hands the link to Overworld's). `{updated, ok, error, lastError, range, events:[{id,title,tag,start,end,allDay,day,lastDay,location,description,link}]}`.
+  Titles are read from Google (read only) and kept in that file only. `CalendarService.qml` (singleton, `Widgets/Services/`) syncs at start, every 10 min, after a resume and after an add, and watches the file, so a
+  sync from the terminal or from Overworld shows up at once. Backend: see `apothecary help calendar` (`google_api.py` of the Hermes google-workspace skill, `HYPR_GCAL_BACKEND`, or
+  `~/.config/hypr-gcal/config.json`). Only `add` writes; `HYPR_GCAL_DRYRUN=1` prints the command instead.
+- **CLI**: `apothecary calendar|cal|gcal [today]` · `sync` · `today` · `next` · `list [--day D | --upcoming N] [--json]` · `add "<title>" <date> [time]` · `add --parse "<line>" --date D` · `status` · `open <id>` ·
+  `card day <D> | today | next | prev | open | close | add <line> | status | list | newEvent` (the last group = IPC to the shell). `apothecary help calendar`.
+- **IPC**: `qs -c apothecary ipc call calendar sync | day <D> | today | next | prev | add <text> | status | list | upcoming | open | close | newEvent | openEvent <id>` (`next`/`prev` = the month).
+- **Files**: `Widgets/Calendar/{CalendarCard,DayCell,AgendaRow,TagChip,SlipTip,InkRing,CalendarForm,CalendarEditor}.qml`, `CalendarPlace.js`; `Widgets/Services/CalendarService.qml`; `Services/ShellState.qml` (+`calendar`).
+- **Tests**: `bash tests/hypr-gcal.test.sh` (184, the CLI) · `node tests/calendar-layout.test.js` · `preview/calendar-render.sh svc light /tmp/x` (service, 55) · `calendar-render.sh act light /tmp/x` (real mouse and key events, 34) ·
+  `calendar-render.sh card|tip|agenda|busy|rowtip|edit|editerr <light|dark> out.png [soon|offline|notconf|loading]` (offscreen renders). They run in a temp HOME with fictional events (`tests/gcal-fixture.py`), a fake backend
+  and stubs for `notify-send` and `hypr-gcal open`, so nothing real is touched.
+
 ## Now Playing — 影 (the floating mini-player, not a desk card)
 
 A small **hanging scroll** (掛軸) that floats above your windows and shows what is playing: the title, the cover and, for YouTube and TikTok,

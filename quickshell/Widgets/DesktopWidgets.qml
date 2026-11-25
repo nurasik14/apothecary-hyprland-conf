@@ -62,7 +62,7 @@ Variants {
 
         // reading order = stagger order (left column top→bottom, then right column, then the bottom row)
         WeatherCard  { id: weather;  index: 0; cardId: "weather";  defaultX: 24; defaultY: 60 }
-        CalendarCard { id: calendar; index: 1; cardId: "calendar"; defaultX: win.rx(1516); defaultY: 60 }
+        CalendarCard { id: calendar; index: 1; cardId: "calendar"; defaultX: win.rx(1516); defaultY: 60; screenName: win.modelData.name }
         MusicCard    { id: music;    index: 2; cardId: "music";    defaultX: 24; defaultY: 376 }
         SysInfoCard  { id: sysinfo;  index: 3; cardId: "sysinfo";  defaultX: win.rx(1476); defaultY: 336 }
         BrewTimerCard { id: brew;    index: 4; cardId: "brew";    defaultX: 24; defaultY: win.by(812) }

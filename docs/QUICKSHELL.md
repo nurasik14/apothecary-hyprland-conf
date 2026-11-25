@@ -6,7 +6,7 @@
 > The shell described here runs only while the theme is on; `off` stops it and restarts waybar and the notification daemon. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
 
 Owner: qs-core. Config root: `quickshell/` (symlinked to `~/.config/quickshell/apothecary`). Entry: `quickshell/shell.qml`.
-Desktop widgets (`quickshell/Widgets`, IPC targets `widgets`, `brew`, `projects` and `notes`) belong to qs-widgets and are instantiated by
+Desktop widgets (`quickshell/Widgets`, IPC targets `widgets`, `brew`, `projects`, `notes` and `calendar`) belong to qs-widgets and are instantiated by
 `shell.qml` as `DesktopWidgets {}`.
 
 ## Layout
@@ -71,6 +71,7 @@ qs -c apothecary ipc call theme get
 qs -c apothecary ipc call osd volume|brightness
 qs -c apothecary ipc call projects open | add <title> | toggle|done|undone|remove|rm|edit <n|id|title> | undo | list | status   # Projects card
 qs -c apothecary ipc call notes open | newSheet | add <text> | next | prev | remove | undo | list | status | flush   # Notes card
+qs -c apothecary ipc call calendar sync | day <D> | today | next | prev | add <text> | status | list | upcoming | open | close | newEvent | openEvent <id>   # Calendar card (Google Calendar)
 qs -c apothecary ipc call nowplaying toggle | on | off | status | reveal | reset   # the Now Playing scroll
 qs -c apothecary ipc call workspace reveal <1-10> | current | hide | title <n>   # workspace card
 qs -c apothecary ipc call shell closeAll|status

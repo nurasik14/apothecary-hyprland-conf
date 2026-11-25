@@ -2,6 +2,18 @@
 
 Changes to the Apothecary Hyprland theme after the first public version. Newest first.
 
+## 2026-11-25 — Calendar: your Google Calendar on the 日历 card
+
+### Added
+
+- The Calendar card shows the events of the user's **Google Calendar**: ink drops under the days that have events (tag ink; hollow = all day), the seal stamped on today, a line under the title
+  with the next event (seal-red within 15 min), **paper-slip tooltips** on hover, a brushed ink ring on the selected day. **Click a day**: the month folds into its week and the day's agenda opens in
+  the card (click an event = open it in the browser). **Double-click a day** or the 󰐕: a quick-add panel (`日程 · New event`, layer `apothecary-calendar`) with a live preview, `14:00 Meeting @room`,
+  `9:30-11 Lab`, `all day Exam`. Offline keeps the saved events; not connected says how to connect. Same data as Overworld's card.
+- `scripts/hypr-gcal` (the CLI: `sync today next list add open status`), **byte-identical with Overworld's copy**, linked to `~/.local/bin/hypr-gcal` by `install.sh`; the cache `~/.cache/hypr-gcal/events.json` is shared.
+  `apothecary calendar …` / `apothecary help calendar`; IPC target `calendar`; `ShellState.calendarOpen` (one modal at a time).
+- Tests: `tests/hypr-gcal.test.sh` (184), `tests/calendar-layout.test.js`, `preview/calendar-render.sh` (`svc` 55, `act` 34, renders). Details: `docs/WIDGETS.md` → *Calendar events*.
+
 ## 2026-11-16 — Now Playing: long YouTube videos get their picture in parts
 
 ### Added
