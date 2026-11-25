@@ -15,6 +15,8 @@ import qs.NowPlaying
  *     ┃ │ the picture: the silent mirror video  │ ┃  hover: ⏮ [⏯ seal] ⏭ at the bottom, 󰏌 ✕ top right; TikTok (logged in):
  *     ┃ │                                       │ ┃         ♥ ⟲ 🔖 (like / repost / save) above ⏮ ⏯ ⏭, a filled chip = on
  *     ┃ │ over the thumbnail (blurred letterbox)│ ┃  paused: ink wash + 停 seal · PAUSED  (nothing: 静 · STOPPED)
+ *     ┃ │                                       │ ┃  2+ sources: a paper chip top left "YouTube 2/3" (wheel = next / previous;
+ *     ┃ │                                       │ ┃  click = the list: Auto + one row per source, a paper slip inside the picture)
  *     ┃ └───────────────────────────────────────┘ ┃
  *     ┃ ─────────■────────────  ink progress, seal knob                ┃
  *     ┃ Title (LXGW WenKai, ink)                          [影] seal  ┃
@@ -36,6 +38,10 @@ Item {
     property bool forceHover: false
     property string frameStill: ""
     property bool mirrorEnabled: true
+    property bool forceList: false          // renders: the source list open
+    property bool listOpen: false
+    readonly property bool listShown: (listOpen || forceList) && srcChip.visible
+    onHoveredChanged: if (!hovered) listOpen = false
     readonly property bool hovered: hover.hovered || forceHover || dragH.active || grip.active
     readonly property bool interacting: dragH.active || grip.active
     signal dragFinished()
@@ -232,19 +238,18 @@ Item {
                               ? Image.PreserveAspectCrop : Image.PreserveAspectFit
                 }
 
-                VideoMirror {
+                MirrorStack {   // the whole file, or a long video's parts (two players, the next part preloaded)
                     id: mirror
                     anchors.fill: parent
-                    active: root.mirrorEnabled && root.visible && root.np.videoFile.length > 0 && !root.np.ad
-                    source: active ? root.np.videoFile : ""
+                    active: root.mirrorEnabled && root.visible && (root.np.mirrorParts || []).length > 0 && !root.np.ad
+                    parts: active ? root.np.mirrorParts : []
                     clock: root.np.clock
-                    opacity: ready ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: root.dur(Theme.durBase); easing.type: Easing.OutCubic } }
+                    fadeMs: root.dur(Theme.durBase)
                 }
 
                 // badges: LIVE is a small vermilion seal, an ad an ochre slip
                 Rectangle {
-                    visible: root.np.live || root.np.ad
+                    visible: (root.np.live || root.np.ad) && !(root.hovered && srcChip.visible)
                     x: 6; y: 6
                     width: badge.implicitWidth + 10; height: 17
                     radius: 2
@@ -260,9 +265,9 @@ Item {
                     }
                 }
                 Rectangle {   // a TikTok like / repost / save just failed: say why for a few seconds (also in the chip's tooltip)
-                    visible: root.np.actionErrorFresh === true && root.np.canLike === true
+                    visible: root.np.actionErrorFresh === true && (root.np.canLike === true || root.np.route === "tab") && !root.listShown
                     x: 6; width: parent.width - 12
-                    anchors.bottom: parent.bottom; anchors.bottomMargin: 8 + 24 + 4 + 24 + 6
+                    anchors.bottom: parent.bottom; anchors.bottomMargin: root.np.canLike === true ? 8 + 24 + 4 + 24 + 6 : 8 + 24 + 6
                     height: errText.implicitHeight + 6
                     radius: 3
                     color: "#C8151110"
@@ -335,7 +340,100 @@ Item {
                         height: 36
                         gradient: Gradient { GradientStop { position: 0; color: "#90100c0a" } GradientStop { position: 1; color: "#00100c0a" } }
                     }
+                    Item {   // the source chip: what is shown out of how many; click = the list, wheel = next / previous
+                        id: srcChip
+                        objectName: "sourceChip"
+                        readonly property int n: Number(root.np.sourceCount) || 0
+                        readonly property bool pinned: root.np.auto === false
+                        readonly property string count: (Number(root.np.shownIndex) > 0 ? root.np.shownIndex : "–") + "/" + n
+                        readonly property string full: String(root.np.sourceLabel || "") + " " + count
+                        readonly property int room: parent.width - topRight.width - 6 - 6 - 4
+                        readonly property int glyphW: pinned ? pinGlyph.implicitWidth + 4 : 0
+                        readonly property bool fits: fullMeasure.implicitWidth + glyphW + 16 <= room
+                        readonly property string text: fits ? full : count
+                        readonly property string tip: (pinned ? "Pinned: " : "Auto: ") + String(root.np.sourceLabel || "") + " · click to choose, wheel to switch"
+                        visible: n >= 2 || (pinned && n >= 1)
+                        anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 6
+                        height: 24
+                        width: Math.min(room, chipLabel.implicitWidth + glyphW + 16)
+                        Text { id: fullMeasure; visible: false; text: srcChip.full; font: chipLabel.font }
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: Theme.radius.sm
+                            color: root.listShown ? Theme.withAlpha(Theme.surfaceAlt, 0.96) : Theme.withAlpha(Theme.surface, 0.92)
+                            border.width: 1
+                            border.color: srcChip.pinned ? Theme.withAlpha(Theme.seal, 0.85) : Theme.withAlpha(Theme.frame, 0.5)
+                        }
+                        Rectangle {   // ink wash on hover
+                            anchors.fill: parent
+                            radius: Theme.radius.sm
+                            color: Theme.inkWashStrong
+                            opacity: srcMa.containsMouse ? 0.6 : 0
+                            Behavior on opacity { NumberAnimation { duration: Theme.durFast } }
+                        }
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 4
+                            Text {
+                                id: pinGlyph
+                                visible: srcChip.pinned
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "󰐃"
+                                color: Theme.seal
+                                font.family: Theme.fontMono; font.pixelSize: 12
+                                renderType: Text.NativeRendering
+                            }
+                            Text {
+                                id: chipLabel
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Math.min(implicitWidth, srcChip.room - srcChip.glyphW - 16)
+                                text: srcChip.text
+                                elide: Text.ElideRight
+                                color: Theme.text
+                                font.family: Theme.fontUi; font.pixelSize: 11; font.weight: Font.Medium
+                                renderType: Text.NativeRendering
+                            }
+                        }
+                        MouseArea {
+                            id: srcMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.listOpen = !root.listOpen
+                        }
+                        WheelHandler {
+                            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                            property real acc: 0
+                            onWheel: event => {
+                                acc += event.angleDelta.y;
+                                if (Math.abs(acc) < 60) return;
+                                root.np.pick(acc < 0 ? "next" : "prev");
+                                acc = 0;
+                            }
+                        }
+                        Timer { id: srcTipDelay; interval: 450; running: srcMa.containsMouse && !root.listShown }
+                        Rectangle {   // the paper tooltip, below and left-aligned
+                            visible: srcMa.containsMouse && !srcTipDelay.running && !root.listShown
+                            z: 10
+                            width: Math.min(srcTip.implicitWidth + 10, picture.width - 12); height: 18
+                            radius: 2
+                            y: srcChip.height + 4
+                            color: Theme.withAlpha(Theme.surface, 0.96)
+                            border.width: 1; border.color: Theme.withAlpha(Theme.frame, 0.6)
+                            Text {
+                                id: srcTip
+                                x: 5; width: parent.width - 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: srcChip.tip
+                                elide: Text.ElideRight
+                                color: Theme.text
+                                font.family: Theme.fontUi; font.pixelSize: 11
+                                renderType: Text.NativeRendering
+                            }
+                        }
+                    }
                     Row {
+                        id: topRight
                         anchors.right: parent.right; anchors.top: parent.top
                         anchors.margins: 6
                         spacing: 4
@@ -388,15 +486,103 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom; anchors.bottomMargin: 8
                         spacing: root.vidW >= 180 ? 8 : 4
-                        Chip { glyph: "󰒮"; tip: "Previous"; wide: true; enabled: root.np.canPrevious; onClicked: root.np.previous() }
+                        // a pinned tab with an older bridge has no buttons: the tooltip says why
+                        readonly property string note: String(root.np.controlsNote || "").length ? "Needs the bridge userscript 1.4.0" : ""
+                        Chip { glyph: "󰒮"; tip: transport.note || "Previous"; wide: true; enabled: root.np.canPrevious; onClicked: root.np.previous() }
                         Chip {
                             glyph: root.np.paused ? "󰐊" : "󰏤"
-                            tip: root.np.paused ? "Play" : "Pause"
+                            tip: transport.note || (root.np.paused ? "Play" : "Pause")
                             seal: true; wide: true
                             enabled: root.np.canToggle
                             onClicked: root.np.togglePlaying()
                         }
-                        Chip { glyph: "󰒭"; tip: "Next"; wide: true; enabled: root.np.canNext; onClicked: root.np.next() }
+                        Chip { glyph: "󰒭"; tip: transport.note || "Next"; wide: true; enabled: root.np.canNext; onClicked: root.np.next() }
+                    }
+                }
+
+                // ---------------------------------------------------------------- the source list (mouse only: the PiP has no keyboard)
+                Rectangle {   // a paper slip pinned inside the picture
+                    id: sourceList
+                    objectName: "sourceList"
+                    visible: root.listShown
+                    z: 2
+                    x: 6; y: 6 + 24 + 4
+                    width: parent.width - 12; height: parent.height - y - 6
+                    radius: Theme.radius.sm
+                    color: Theme.withAlpha(Theme.surface, 0.97)
+                    border.width: 1; border.color: Theme.withAlpha(Theme.frame, 0.6)
+                    MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: wheel => wheel.accepted = false }   // no drag / click-through
+                    ListView {
+                        id: rows
+                        anchors.fill: parent; anchors.margins: 3
+                        anchors.rightMargin: contentHeight > height ? 8 : 3   // room for the scroll line
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: [{ id: "", auto: true }].concat(root.np.sources || [])
+                        delegate: Item {
+                            id: row
+                            required property var modelData
+                            required property int index
+                            readonly property bool isAuto: modelData.auto === true
+                            readonly property bool chosen: isAuto ? root.np.auto === true : modelData.id === root.np.pinnedId
+                            readonly property bool shownNow: !isAuto && modelData.id === root.np.shownId
+                            width: rows.width; height: 22
+                            Rectangle {   // hover: ink wash; the chosen row: a vermilion rule on the left + a faint wash
+                                anchors.fill: parent
+                                radius: 2
+                                color: rowMouse.containsMouse ? Theme.inkWashStrong : row.chosen ? Theme.withAlpha(Theme.seal, 0.12) : "transparent"
+                            }
+                            Rectangle {
+                                visible: row.chosen
+                                width: 3; height: parent.height - 6; y: 3; x: 1
+                                radius: 1
+                                color: Theme.seal
+                            }
+                            Text {
+                                id: mark
+                                x: 7; anchors.verticalCenter: parent.verticalCenter
+                                width: 14
+                                text: row.isAuto ? "󰁨" : row.modelData.paused ? "󰏤" : "󰐊"
+                                color: row.isAuto ? Theme.gold : row.modelData.paused ? Theme.textMuted : Theme.success
+                                font.family: Theme.fontMono; font.pixelSize: 12
+                                renderType: Text.NativeRendering
+                            }
+                            Text {
+                                id: rowLabel
+                                x: mark.x + mark.width + 3; anchors.verticalCenter: parent.verticalCenter
+                                width: Math.min(implicitWidth, parent.width - x - 4)
+                                elide: Text.ElideRight
+                                text: row.isAuto ? "Auto" : String(row.modelData.label || "")
+                                color: row.isAuto ? Theme.text : (({ youtube: Theme.error, ytmusic: Theme.error, spotify: Theme.success, tiktok: Theme.plum })[row.modelData.site] || Theme.text)
+                                font.family: Theme.fontUi; font.pixelSize: 11; font.weight: Font.Bold
+                                renderType: Text.NativeRendering
+                            }
+                            Text {
+                                x: rowLabel.x + rowLabel.width + 6; anchors.verticalCenter: parent.verticalCenter
+                                width: Math.max(0, parent.width - x - 4)
+                                visible: width > 12
+                                elide: Text.ElideRight
+                                text: row.isAuto ? (root.np.auto === true && Number(root.np.shownIndex) > 0 ? "→ " + root.np.shownIndex : "follows what plays")
+                                                 : String(row.modelData.title || "")
+                                color: row.shownNow ? Theme.text : Theme.textMuted
+                                font.family: Theme.fontBody; font.pixelSize: 12; font.weight: row.shownNow ? Font.Medium : Font.Normal
+                                renderType: Text.NativeRendering
+                            }
+                            MouseArea {
+                                id: rowMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: { root.np.choose(row.isAuto ? "" : row.modelData.id); root.listOpen = false; }
+                            }
+                        }
+                    }
+                    Rectangle {   // a thin ink scroll line when the rows overflow
+                        visible: rows.contentHeight > rows.height
+                        x: parent.width - 5; width: 2; radius: 1
+                        y: 3 + (rows.height - height) * (rows.contentHeight > rows.height ? rows.contentY / (rows.contentHeight - rows.height) : 0)
+                        height: Math.max(12, rows.height * rows.height / Math.max(1, rows.contentHeight))
+                        color: Theme.withAlpha(Theme.text, 0.5)
                     }
                 }
             }

@@ -7,7 +7,9 @@ import Quickshell.Io
  *  Defaults apply when the file is missing or malformed:
  *    sounds: true · reduced_motion: false · notifications.timeout {low 4000, normal 7000} · weather {…}
  *    nowplaying.{layer "overlay"|"top", autoHideSec 20, maxVideoMin 20, hideWhenSourceFullscreen true, width 360, cacheMB 400,
- *                port 47833, video true}   (the Now Playing PiP, quickshell/NowPlaying; its service passes these fallbacks)
+ *                port 47833, video true, partFirstMin 5, partMin 40, partAheadMin 5, partHeight 360}   (the Now Playing PiP,
+ *                quickshell/NowPlaying; its service passes these fallbacks; maxVideoMin = whole file up to this length, longer
+ *                YouTube videos come in parts)
  *  ConfigService.get("notifications.timeout.normal", 7000)
  *  APO_CONFIG=<path> points the service at another file (tests).
  */

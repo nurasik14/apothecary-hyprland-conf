@@ -182,6 +182,18 @@ SUPER+ALT+P, the bar's Desk widgets menu (row 影 *Now Playing*), or `apothecary
   session, TikTok's own requests), refuses when the tab shows another clip, and runs one press at a time (all three dim, the running one
   shows 󰔟). A failure shows for a few seconds as a slip over the picture and stays in the chip's tooltip. Commands travel shell → daemon
   stdin → the tab's reply over 127.0.0.1 with the token; details in Overworld's `docs/NOWPLAYING.md` → *TikTok*.
+- **Several tabs or apps** (two YouTube tabs, YouTube + TikTok, + Spotify…): on hover a **source chip** top left, e.g. `YouTube 2/3`
+  (just `2/3` when narrow; a pin glyph when pinned). **Click** = a list **inside the scroll** (mouse only): **Auto** first, then one row per
+  source (▶ / ⏸, the site, the title), the current choice marked; click a row to choose it. **Wheel** over the chip = next / previous.
+  **Auto** (default) is the old rule (the newest playing tab, else the MPRIS player, Spotify first, else a paused tab); a chosen row is
+  **pinned** until that source goes away (tab closed, player quit; 3 s), then Auto again. The pin survives a shell reload, not a logout.
+  `apothecary nowplaying sources` / `pick <n|next|prev|auto>`, IPC `nowplaying sources` / `pick`. Sources = every bridge tab (YouTube,
+  YouTube Music, TikTok) + every MPRIS player not already shown as a tab (deduped by title). **Zen has one MPRIS player for all its tabs**,
+  so a tab on another site cannot be listed on its own (only as Zen's one row). **Controls act on the shown source**: a pinned tab that Zen's
+  MPRIS does not follow gets ⏯ ⏮ ⏭ through the bridge (its own `<video>`, YouTube's next button, TikTok's feed step; a background `play()`
+  the browser refuses is shown, not retried; needs the userscript **1.4.0**). 󰏌 focuses the Zen **window** (not the exact tab: impossible
+  from outside the browser). A **maximized** Zen (Hyprland `fullscreen = 1`) no longer hides the scroll; only real fullscreen does.
+  Details: Overworld's `docs/NOWPLAYING.md` → *Several tabs or apps*.
 - **Move / size**: drag it anywhere but the buttons; resize from the brush-stroke grip at the bottom-right corner (keeps the aspect, 200–960 px
   for a 16:9 picture); double-click the strip = back to the default corner and size. Saved per monitor as distances from the nearest two edges
   in `~/.config/apothecary/nowplaying.json`, so a portrait clip replacing a landscape one grows away from that corner. Default: bottom-right,
@@ -193,21 +205,30 @@ SUPER+ALT+P, the bar's Desk widgets menu (row 影 *Now Playing*), or `apothecary
   player, merged with the bridge state `$XDG_RUNTIME_DIR/hypr-nowplaying/state.json`. The daemon `scripts/hypr-nowplaying serve --stdin`
   (byte-identical with Overworld's copy) runs as a **child of the shell, only while the scroll is on**; with Overworld's shell also running,
   the second one waits (exit 3, retried) and both read the same state file. Without the userscript, YouTube still works (Zen's MPRIS carries the
-  URL); TikTok needs it: `apothecary nowplaying userscript --serve`, then open the URL it prints in Zen and press Install (Violentmonkey).
+  URL); TikTok needs it: `apothecary nowplaying userscript --serve`, then open the URL it prints in Zen and press Install (Violentmonkey). Google Chrome works too (1.4.1+): install Tampermonkey, turn on its *Allow User Scripts* switch in chrome://extensions → Details, then open the same URL in Chrome.
   Details of the bridge, the token and the cache: Overworld's `docs/NOWPLAYING.md`.
-- **Config** `~/.config/apothecary/config.json` → `"nowplaying"`: `layer` `"overlay"`|`"top"`, `autoHideSec` 20, `maxVideoMin` 20 (longer videos:
-  cover only), `hideWhenSourceFullscreen` true, `width` 360, `cacheMB` 400, `port` 47833, `video` true (false = never download),
-  `tiktokCollection` "Edits" (the collection the TikTok save chip adds to).
+- **Config** `~/.config/apothecary/config.json` → `"nowplaying"`: `layer` `"overlay"`|`"top"`, `autoHideSec` 20, `maxVideoMin` 20 (up to this
+  length a YouTube video is fetched as one file, longer ones in parts; TikTok clips longer than this: cover only), `hideWhenSourceFullscreen` true,
+  `width` 360, `cacheMB` 400, `port` 47833, `video` true (false = never download), `tiktokCollection` "Edits" (the collection the TikTok save chip
+  adds to), `partFirstMin` 5, `partMin` 40, `partAheadMin` 5, `partHeight` 360 (long videos, below).
+- **Long YouTube videos come in parts** (no length limit): the daemon fetches a 5-min part at the position (the picture appears after about a
+  minute), then 40-min parts, each starting 8 s before the previous one ends, the next one when less than 5 min is left ahead; a seek outside the
+  fetched range starts again with a short part there. 360p, video only, cache files `youtube-<id>.part-<startMs>-<endMs>.mp4` under the same
+  `cacheMB` LRU; parts more than 10 min behind are deleted, the shown and the next one never. The scroll has two hidden players: the next part
+  is preloaded and running in sync, and it takes over 1 s before the current one ends, so there is no flash. `apothecary nowplaying status` says
+  e.g. `video parts 2/3 ready`. Measured on the author's VPN: about 40 s per request plus ≈ 1.3 s and ≈ 2.5 MB per minute of video at 360p.
+  Details (where a part really starts, the measurements): Overworld's `docs/NOWPLAYING.md` → *Long videos*.
 - **CLI**: `apothecary nowplaying on|off|toggle|status|reveal|reset|userscript [--serve]|cache [list|clear]|bridge`, `apothecary help nowplaying`.
   `on|off` with the shell down flip the state file. IPC target `nowplaying`: `toggle on off status reveal reset`.
 - Files: `quickshell/NowPlaying/` — `NowPlayingPip.qml` (the layer), `NowPlayingView.qml` (the scroll), `NowPlayingService.qml`,
-  `NowPlayingIpc.qml`, `VideoMirror.qml` + `sync.js` (byte-identical with Overworld's: MediaPlayer with **no audio output**, steered by the
-  browser's clock).
+  `NowPlayingIpc.qml`, `MirrorStack.qml` + `VideoMirror.qml` + `sync.js` (byte-identical with Overworld's: MediaPlayer with **no audio output**,
+  steered by the browser's clock; MirrorStack = two of them for a long video's parts).
 - Tests: `tests/nowplaying-service.test.sh` (a private offscreen qs with the real daemon as its child, temp everything, fake browser reports),
   `quickshell/NowPlaying/preview/render.sh` (offscreen renders of every case in both modes → `qa/screenshots/nowplaying-*.png`;
   `render.sh <dir> act` runs `preview/act.qml`: real pointer events for hover, tooltip, every button, drag, double-click reset, the grip and the clamp;
   `render.sh <dir> tt-off tt-on tt-busy tt-unknown tt-error tt-min tt-wide` renders the TikTok chips, `render.sh <dir> tt-act` runs `preview/tt-act.qml`),
-  `preview/mirror-test.qml` (the real mirror player: sync, seek, pause, rate). The daemon's and the userscript's suites live in the Overworld repo
+  `preview/mirror-test.qml` (the real mirror player: sync, seek, pause, rate), `preview/parts-test.qml` (`APO_PARTS`, `APO_PARTS_FROM`,
+  `APO_PARTS_SECS`: MirrorStack with real part files across a boundary: preload, one swap, no dropout, in sync). The daemon's and the userscript's suites live in the Overworld repo
   (`tests/hypr-nowplaying.test.sh <path to this repo's copy>`, `tests/nowplaying-bridge.test.sh`).
 
 ## IPC

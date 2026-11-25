@@ -2,6 +2,37 @@
 
 Changes to the Apothecary Hyprland theme after the first public version. Newest first.
 
+## 2026-11-16 — Now Playing: long YouTube videos get their picture in parts
+
+### Added
+
+- Videos longer than `nowplaying.maxVideoMin` (default 20) used to show only the cover in the scroll. Now they (not live, no length limit) are
+  fetched in **parts around the position**: 5 min where you are first (the picture after about a minute), then 40-min parts, the next one when
+  less than 5 min is left; a seek outside starts again there. 360p, video only, under the same `cacheMB` LRU; parts more than 10 min behind
+  are deleted. `maxVideoMin` now only decides "whole file or parts". Config `partFirstMin` 5, `partMin` 40, `partAheadMin` 5, `partHeight` 360.
+- The scroll plays them with two players (`MirrorStack.qml`, shared with Overworld): the next part is preloaded and takes over without a flash.
+  `apothecary nowplaying status` shows `video parts n/m ready`.
+- `scripts/hypr-nowplaying` updated, still byte-identical with Overworld's; the userscript is unchanged. Tests: `tests/nowplaying-service.test.sh`
+  (80), `preview/parts-test.qml`; the daemon suite (Overworld's `tests/hypr-nowplaying.test.sh`, 165) passes against this copy.
+
+## 2026-11-15 — Now Playing: choose which tab / app the scroll shows
+
+### Added
+
+- With several things playing or paused (two YouTube tabs, YouTube + TikTok, + Spotify…), hover the scroll: a **source chip** `YouTube 2/3`.
+  Click = a list inside the scroll (Auto + one row per source); the wheel over the chip cycles. Auto = the old rule; a chosen row is **pinned**
+  until that source goes away. `apothecary nowplaying sources` / `pick <n|next|prev|auto>`. Controls act on the shown source (a pinned tab gets
+  ⏯ ⏮ ⏭ through the bridge). Needs the bridge userscript **1.4.0** for the per-tab buttons: `apothecary nowplaying userscript --serve`.
+- `scripts/hypr-nowplaying` and `apps/zen/nowplaying-bridge.user.js` updated, still byte-identical with Overworld's (`tabs` + `pin` in the state
+  file, per-tab media commands). Tests: `tests/nowplaying-service.test.sh` (72), `preview/src-act.qml`, `render.sh src-*`.
+
+### Fixed
+
+- The scroll no longer hides on a **maximized** Zen (Hyprland reports maximized as `fullscreen = 1`); only real fullscreen (bit 2) hides it.
+- The scroll no longer stays hidden after you leave a fullscreen video: the window data it checks is re-read on every fullscreen / focus change.
+- Bridge userscript **1.4.1** also runs in **Google Chrome** under Tampermonkey (turn on *Allow User Scripts* for it in chrome://extensions).
+  Chrome tells the desktop no page URL, so without the bridge a Chrome YouTube tab shows only its cover.
+
 ## 2026-11-10 — Now Playing: like, repost and save TikTok clips from the scroll
 
 ### Added

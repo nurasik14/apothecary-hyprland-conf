@@ -3,6 +3,8 @@
 #   quickshell/NowPlaying/preview/render.sh [outdir] [case …]      (default outdir qa/screenshots, all cases)
 #   TikTok buttons: tt-off tt-on tt-busy tt-unknown tt-error tt-min tt-wide (not in the default list)
 #   case `tt-act` = preview/tt-act.qml: the TikTok row under real pointer events
+#   source chooser: src-chip src-list src-one src-min-chip src-min-list src-wide-list (not in the default list);
+#   case `src-act` = preview/src-act.qml: the source chip + list under real pointer events
 #   case `act` = preview/act.qml: real pointer events (hover, tooltip, buttons, drag, double-click, grip, clamp), PASS / FAIL lines
 # A temp HOME holds only the mode file and a link to the real fonts. Stills: ~/.hermes/cache/scratch/np/ (a frame of a real cached
 # YouTube clip, see docs/WIDGETS.md → Now Playing), or NP_STILL169 / NP_STILL916 / NP_THUMB.
@@ -30,6 +32,12 @@ for mode in light dark; do
             grep -aq "tt act done: 0 failed" "$T/log" && echo "ok   tt-act $mode" || { echo "FAIL tt-act $mode"; fails=$((fails+1)); }
             continue
         fi
+        if [[ "$c" == src-act ]]; then
+            HOME="$T/home" QT_QPA_PLATFORM=offscreen timeout 40 qs -p "$HERE/src-act.qml" >"$T/log" 2>&1
+            grep -aoE "(PASS|FAIL) .*|src act done.*" "$T/log" | sed 's/^/     /'
+            grep -aq "src act done: 0 failed" "$T/log" && echo "ok   src-act $mode" || { echo "FAIL src-act $mode"; fails=$((fails+1)); }
+            continue
+        fi
         if [[ "$c" == act ]]; then
             HOME="$T/home" QT_QPA_PLATFORM=offscreen APO_RENDER_OUT="$OUT/nowplaying-act-tooltip-$mode.png" timeout 40 qs -p "$HERE/act.qml" >"$T/log" 2>&1
             grep -aoE "(PASS|FAIL) .*|nowplaying act done.*" "$T/log" | sed 's/^/     /'
@@ -37,7 +45,7 @@ for mode in light dark; do
             grep -a -iE "warn|error" "$T/log" | grep -av -e "PASS" -e "FAIL" -e "act done" -e "WAYLAND_DISPLAY" -e "--- WARNING" -e "If you are actually" | sed 's/^/     /' | head -8
             continue
         fi
-        still="$S169"; [[ "$c" == portrait || ( "$c" == tt-* && "$c" != tt-wide ) ]] && still="$S916"
+        still="$S169"; [[ "$c" == portrait || ( "$c" == tt-* && "$c" != tt-wide ) || "$c" == src-min-* ]] && still="$S916"
         png="$OUT/nowplaying-$c-$mode.png"
         rm -f "$png"
         HOME="$T/home" QT_QPA_PLATFORM=offscreen APO_NP_CASE="$c" APO_RENDER_OUT="$png" APO_NP_STILL="$still" APO_NP_STILL169="$S169" APO_NP_THUMB="$THUMB" \
